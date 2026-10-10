@@ -5,13 +5,16 @@ import { SETTINGS_KEY } from '../src/settings/storage.ts';
 /** Sim mode with the placeholder camera, no auto passes. */
 export const SIM_URL = './?sim=1&cam=fake&auto=0';
 
-/** Saved settings with no arming time and no cooldown, so tests can pass quickly. */
+/** Saved settings with no arming time and no cooldown, so tests can pass quickly. Kept across reloads. */
 export async function fastSettings(page: Page) {
   const s = { ...DEFAULTS, detection: { ...DEFAULTS.detection, warmupMs: 0, cooldownMs: 0 } };
-  await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
-    key: SETTINGS_KEY,
-    value: JSON.stringify(s),
-  });
+  await page.addInitScript(
+    ({ key, value }) => localStorage.getItem(key) ?? localStorage.setItem(key, value),
+    {
+      key: SETTINGS_KEY,
+      value: JSON.stringify(s),
+    },
+  );
 }
 
 export const chip = (page: Page) =>

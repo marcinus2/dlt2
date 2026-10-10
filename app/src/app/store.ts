@@ -12,7 +12,7 @@ import type {
 } from '../engine/types.ts';
 import { DEFAULTS, type SettingKey, setSetting } from '../settings/schema.ts';
 import { equalSettings, type SettingErrors, validate } from '../settings/validate.ts';
-import type { Diagnostics } from './diagnostics.ts';
+import type { Diagnostics, LumaPair } from './diagnostics.ts';
 import { createEffectRunner, type Effects, type SpeechLatency } from './effects.ts';
 import { type AppEvent, type AppState, type Cue, initialState, reduce } from './machine.ts';
 
@@ -95,6 +95,8 @@ export interface AppStore {
   /** Several fields in one change (Calibrate writes start + end ratio). */
   setDraftValues(values: Partial<Record<SettingKey, unknown>>): void;
   resetDraft(): void;
+  /** Get Ready's Calibrate: saves the ratios and applies them to the running engine (no Save step). */
+  applyCalibration(values: { startRatio: number; endRatio: number }): void;
   showToast(text: string): void;
   dismissToast(id: number): void;
   setUi(patch: Partial<UiState>): void;
@@ -104,6 +106,8 @@ export interface AppStore {
   refreshCameras(): void;
   /** Every engine frame (one reused object): draw outside React, never set state per sample. */
   onSample(cb: (s: Readonly<MotionSample>) => void): Unsubscribe;
+  /** Live luma buffers of the processed region (diff view); null in sim. */
+  luma(): Readonly<LumaPair> | null;
   /** Diagnostics (`?debug=1`, lazy chunk); the caller disposes it. */
   loadDiagnostics(): Promise<Diagnostics>;
 }
@@ -185,6 +189,13 @@ export function createAppStore(opts: StoreOptions): StoreApi<AppStore> & { resum
           Object.entries(values).reduce((d, [k, v]) => setSetting(d, k as SettingKey, v), get().draft),
         ),
       resetDraft: () => changeDraft(DEFAULTS),
+      applyCalibration: ({ startRatio, endRatio }) => {
+        const { state } = get();
+        if (state.screen !== 'getReady' || state.camera !== 'live') return;
+        // Draft equals saved on Get Ready, so the commit writes only these two fields.
+        get().setDraftValues({ 'detection.startRatio': startRatio, 'detection.endRatio': endRatio });
+        get().dispatch({ type: 'CALIBRATED' });
+      },
       showToast: (text) => set({ ui: { ...get().ui, toast: { id: ++toastId, text } } }),
       dismissToast: (id) => {
         if (get().ui.toast?.id === id) get().setUi({ toast: null });
@@ -194,6 +205,7 @@ export function createAppStore(opts: StoreOptions): StoreApi<AppStore> & { resum
       testCue: runner.testCue,
       refreshCameras: runner.refreshCameras,
       onSample: (cb) => fx.engine.on('sample', cb),
+      luma: () => fx.diag?.analyzer.luma() ?? null,
       loadDiagnostics: () =>
         import('./diagnostics.ts').then((m) =>
           m.createDiagnostics({

@@ -57,6 +57,7 @@ const ALL_EVENTS: AppEvent[] = [
   { type: 'CAMERA_LOST', error: lost },
   { type: 'TUNE_START' },
   { type: 'TUNE_STOP' },
+  { type: 'CALIBRATED' },
   { type: 'CONFIRM' },
   { type: 'CANCEL' },
 ];
@@ -175,7 +176,35 @@ describe('GetReady', () => {
   });
 
   it('ignores illegal events', () => {
-    expectIgnored(getReadyLive, ['START', 'APP_HIDDEN', 'NAV_NEW_SESSION', 'NAV_CONFIG', 'CAMERA_LOST']);
+    expectIgnored(getReadyLive, [
+      'START',
+      'APP_HIDDEN',
+      'NAV_NEW_SESSION',
+      'NAV_CONFIG',
+      'CAMERA_LOST',
+      'CALIBRATED',
+    ]);
+  });
+
+  it('CALIBRATED with camera live → same state; settings.commit, engine.update', () => {
+    const r = reduce(getReadyLive, { type: 'CALIBRATED' });
+    expect(r.state).toBe(getReadyLive);
+    expect(r.effects).toEqual([{ type: 'settings.commit' }, { type: 'engine.update' }]);
+  });
+
+  it.each([
+    ['getReady starting', starting],
+    ['getReady off (hidden)', run(getReadyLive, { type: 'APP_HIDDEN' }).state],
+    ['getReady error', run(starting, { type: 'CAMERA_ERROR', error: err }).state],
+    ['welcome', initialState],
+    ['session', timing],
+    ['paused', pausedWithLaps],
+    ['config', config],
+    ['config tuning', tuningLive],
+  ])('CALIBRATED on %s is ignored', (_, s) => {
+    const r = reduce(s, { type: 'CALIBRATED' });
+    expect(r.state).toBe(s);
+    expect(r.effects).toEqual([]);
   });
 });
 

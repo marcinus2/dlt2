@@ -85,3 +85,20 @@ test('flow 2 (real): STOP releases the camera, CONTINUE drops the in-progress la
   await dialog.getByRole('button', { name: 'End session' }).click();
   await expect(page.getByRole('button', { name: 'Get ready!' })).toBeVisible();
 });
+
+test('Get Ready (real): Difference shows the diff canvas; back to Live, START still works', async ({
+  page,
+}) => {
+  await getReady(page);
+  await page.getByRole('button', { name: 'Difference' }).click();
+  const diff = page.getByRole('img', { name: 'Diff view of the processed region' });
+  await expect(page.getByText('Highlighted: pixels that changed.', { exact: false })).toBeVisible();
+  await expect.poll(() => diff.evaluate((c) => (c as HTMLCanvasElement).width), PASS_WAIT).toBeGreaterThan(1);
+  expect(await tracks(page)).toEqual(['live']); // same camera run
+
+  await page.getByRole('button', { name: 'Live' }).click();
+  await expect(diff).toHaveCount(0);
+  await expect(page.getByTestId('roi')).toBeVisible();
+  await page.getByRole('button', { name: 'Start' }).click();
+  await expect(chip(page)).toHaveText('Stand-by', PASS_WAIT);
+});

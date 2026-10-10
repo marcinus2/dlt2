@@ -46,6 +46,8 @@ export type AppEvent =
   | { type: 'CAMERA_LOST'; error: CameraError }
   | { type: 'TUNE_START' }
   | { type: 'TUNE_STOP' }
+  /** Get Ready's Calibrate wrote new ratios into the draft: save and apply them. */
+  | { type: 'CALIBRATED' }
   | { type: 'CONFIRM' }
   | { type: 'CANCEL' };
 
@@ -55,6 +57,8 @@ export type Effect =
   | { type: 'engine.start'; draft?: true }
   | { type: 'engine.reset' }
   | { type: 'engine.stop' }
+  /** Running engine takes the saved detection settings. */
+  | { type: 'engine.update' }
   | { type: 'audio.unlock' }
   | { type: 'audio.cue'; cue: Cue; lapMs?: Ms }
   | { type: 'wakeLock.acquire' }
@@ -204,6 +208,8 @@ function getReady(s: AppState, e: AppEvent): Result {
       return s.camera === 'off' ? same(s) : to({ ...s, camera: 'off' }, [ENGINE_STOP, CAMERA_STOP]);
     case 'APP_VISIBLE':
       return s.camera === 'off' ? to({ ...s, camera: 'starting' }, [{ type: 'camera.start' }]) : same(s);
+    case 'CALIBRATED':
+      return s.camera === 'live' ? to(s, [{ type: 'settings.commit' }, { type: 'engine.update' }]) : same(s);
     case 'NAV_NEW_SESSION':
       return to(leaveTo(s, 'welcome'), STOP_ALL);
     case 'NAV_CONFIG':

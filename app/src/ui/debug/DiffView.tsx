@@ -4,6 +4,7 @@
 import { useEffect, useRef } from 'react';
 import type { LumaPair } from '../../app/diagnostics.ts';
 import type { MotionSample, Unsubscribe } from '../../engine/types.ts';
+import { cx } from '../cx.ts';
 import { token } from './token.ts';
 
 function rgb(color: string): [number, number, number] {
@@ -17,10 +18,16 @@ export function DiffView({
   subscribe,
   luma,
   threshold,
+  mirrored = false,
+  className = 'max-h-64 w-auto max-w-full rounded-card border border-border bg-surface',
 }: {
   subscribe: (cb: (s: Readonly<MotionSample>) => void) => Unsubscribe;
   luma: () => Readonly<LumaPair> | null;
   threshold: number;
+  /** Front camera: flip like the live preview. */
+  mirrored?: boolean;
+  /** Size and frame; replaces the Diagnostics default. */
+  className?: string;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const thr = useRef(threshold);
@@ -73,7 +80,7 @@ export function DiffView({
       height={1}
       role="img"
       aria-label="Diff view of the processed region"
-      className="max-h-64 w-auto max-w-full rounded-card border border-border bg-surface [image-rendering:pixelated]"
+      className={cx(className, '[image-rendering:pixelated]', mirrored && '-scale-x-100')}
     />
   );
 }
