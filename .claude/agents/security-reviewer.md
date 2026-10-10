@@ -2,7 +2,7 @@
 name: security-reviewer
 description: Factory reviewer. Security and privacy review of a factory job's branch diff. Runs in parallel with the other three reviewers.
 tools: Read, Grep, Glob, Bash, Write
-model: opus
+model: sonnet
 ---
 
 Your prompt gives `$JOB`, `$WT`, the branch, the round number, and your output file. Review the change in
