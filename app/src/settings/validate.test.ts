@@ -127,7 +127,18 @@ describe('sanitize', () => {
     });
     expect(s.camera).toMatchObject({ fps: 60, width: 240, height: 480, facing: 'environment' });
     expect(s.detection).toMatchObject({ pixelDiffThreshold: 20, cooldownMs: 1500 });
-    expect(s.audio).toEqual({ beep: true, voice: false, announceBest: true });
+    expect(s.audio).toEqual({ beep: true, voice: false, announceBest: true, voicePrecision: 'hundredths' });
+  });
+
+  it('spoken precision: missing or unknown → hundredths; tenths is kept', () => {
+    const audio = { beep: true, voice: true, announceBest: true };
+    expect(sanitize({ version: 2, audio }).audio.voicePrecision).toBe('hundredths');
+    expect(sanitize({ version: 2, audio: { ...audio, voicePrecision: 'bogus' } }).audio.voicePrecision).toBe(
+      'hundredths',
+    );
+    const tenths = sanitize({ version: 2, audio: { ...audio, voicePrecision: 'tenths' } });
+    expect(tenths.audio.voicePrecision).toBe('tenths');
+    expect(sanitize(JSON.parse(JSON.stringify(tenths)))).toEqual(tenths);
   });
 
   it('drops unknown keys and forces version 2', () => {

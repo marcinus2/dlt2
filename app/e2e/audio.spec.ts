@@ -2,7 +2,7 @@
 import { expect, type Page, test } from '@playwright/test';
 import { DEFAULTS } from '../src/settings/schema.ts';
 import { SETTINGS_KEY } from '../src/settings/storage.ts';
-import { pass, SIM_URL, startSession } from './helpers.ts';
+import { hero, pass, SIM_URL, startSession } from './helpers.ts';
 
 async function recordAudio(page: Page, audio = DEFAULTS.audio) {
   const s = { ...DEFAULTS, audio, detection: { ...DEFAULTS.detection, warmupMs: 0, cooldownMs: 0 } };
@@ -60,7 +60,7 @@ test('unlock primes speech in the taps; go / lap / best are toned and spoken, ca
 test('toggles: beeps off → no tones; voice off → no speech; announceBest off → plain lap', async ({
   page,
 }) => {
-  await recordAudio(page, { beep: false, voice: true, announceBest: false });
+  await recordAudio(page, { ...DEFAULTS.audio, beep: false, announceBest: false });
   await startSession(page);
   await pass(page);
   await pass(page, 600);
@@ -68,8 +68,21 @@ test('toggles: beeps off → no tones; voice off → no speech; announceBest off
   expect((await calls(page)).filter((c) => c.startsWith('tone'))).toEqual([]);
 });
 
+test('tenths: lap times are spoken to one decimal; the screen keeps hundredths', async ({ page }) => {
+  await recordAudio(page, { ...DEFAULTS.audio, voicePrecision: 'tenths' });
+  await startSession(page);
+  await pass(page);
+  await pass(page, 900);
+  await pass(page, 600);
+  await expect.poll(() => said(page)).toHaveLength(3);
+  const s = await said(page);
+  expect(s[0]).toBe('say Go');
+  for (const line of s.slice(1)) expect(line).toMatch(/^say (Best, )?\d+\.\d$/);
+  await expect(hero(page)).toHaveText(/^\d+\.\d\d$/);
+});
+
 test('voice off: tones only', async ({ page }) => {
-  await recordAudio(page, { beep: true, voice: false, announceBest: true });
+  await recordAudio(page, { ...DEFAULTS.audio, voice: false });
   await startSession(page);
   await pass(page);
   await expect.poll(async () => (await calls(page)).filter((c) => c.startsWith('tone'))).toHaveLength(2); // armed, go
@@ -86,4 +99,16 @@ test('Diagnostics sound check plays each cue (debug=1)', async ({ page }) => {
   await expect.poll(() => said(page)).toEqual(['say Go', 'say 12.34', 'say Best, 12.34', 'say Paused']);
   expect((await calls(page)).filter((c) => c.startsWith('tone'))).toHaveLength(5);
   await expect(page.getByTestId('speech-latency')).toBeVisible();
+});
+
+test('Diagnostics sound check uses the draft precision (debug=1)', async ({ page }) => {
+  await recordAudio(page);
+  await page.goto(`${SIM_URL}&debug=1`);
+  await page.getByRole('button', { name: 'Configuration' }).click();
+  await page.getByRole('button', { name: /^Audio/ }).click();
+  await page.getByRole('button', { name: '12.3', exact: true }).click(); // not saved
+  await page.getByRole('button', { name: /^Diagnostics/ }).click();
+  for (const name of ['Go', 'Lap', 'Best', 'Paused'])
+    await page.getByRole('button', { name, exact: true }).click();
+  await expect.poll(() => said(page)).toEqual(['say Go', 'say 12.3', 'say Best, 12.3', 'say Paused']);
 });

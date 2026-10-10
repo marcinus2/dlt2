@@ -37,10 +37,12 @@ export interface CameraSettings {
   exposureTime: number;
   focusLock: boolean;
 }
+export type VoicePrecision = 'hundredths' | 'tenths';
 export interface AudioSettings {
   beep: boolean;
   voice: boolean;
   announceBest: boolean;
+  voicePrecision: VoicePrecision;
 }
 export interface CalibrationSettings {
   durationMs: Ms;

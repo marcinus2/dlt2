@@ -35,8 +35,25 @@ describe('schema', () => {
         resetGapMs: 250,
       },
       calibration: { durationMs: 3000, k: 5 },
-      audio: { beep: true, voice: true, announceBest: true },
+      audio: { beep: true, voice: true, announceBest: true, voicePrecision: 'hundredths' },
     });
+  });
+
+  it('spoken precision is a basic audio enum right after spoken lap times', () => {
+    const f = field('audio.voicePrecision');
+    expect(f).toMatchObject({
+      type: 'enum',
+      group: 'audio',
+      label: 'Spoken precision',
+      default: 'hundredths',
+      options: [
+        { value: 'hundredths', label: '12.34' },
+        { value: 'tenths', label: '12.3' },
+      ],
+    });
+    expect(f.advanced).toBeUndefined();
+    const idx = (k: string) => SCHEMA.findIndex((x) => x.key === k);
+    expect(idx('audio.voicePrecision')).toBe(idx('audio.voice') + 1);
   });
 
   it('keys are unique and every default is valid', () => {

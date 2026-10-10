@@ -1,5 +1,5 @@
 // Lap semantics (spec §3.3). Pure.
-import type { Ms } from '../engine/types.ts';
+import type { Ms, VoicePrecision } from '../engine/types.ts';
 import type { Cue, Lap, SessionData } from './types.ts';
 
 export function newSession(): SessionData {
@@ -52,23 +52,31 @@ export function formatLap(ms: Ms): string {
   return min === 0 ? `${sec}.${cc}` : `${min}:${String(sec).padStart(2, '0')}.${cc}`;
 }
 
-function spokenTime(ms: Ms): string {
-  const { min, sec, cs } = split(ms);
-  const s = `${sec}.${String(cs).padStart(2, '0')}`;
+/** Tenths round the displayed centiseconds half up, so 12.35 on screen is heard as 12.4. */
+function spokenTime(ms: Ms, precision: VoicePrecision): string {
+  if (precision === 'hundredths') {
+    const { min, sec, cs } = split(ms);
+    return minutes(min, `${sec}.${String(cs).padStart(2, '0')}`);
+  }
+  const totalDs = Math.floor((Math.round(ms / 10) + 5) / 10);
+  return minutes(Math.floor(totalDs / 600), `${Math.floor(totalDs / 10) % 60}.${totalDs % 10}`);
+}
+
+function minutes(min: number, s: string): string {
   return min === 0 ? s : `${min} ${min === 1 ? 'minute' : 'minutes'} ${s}`;
 }
 
 /** Spoken phrase per cue (D9). `armed` is a tone only. */
-export function speechText(cue: Cue, lapMs?: Ms): string {
+export function speechText(cue: Cue, lapMs?: Ms, precision: VoicePrecision = 'hundredths'): string {
   switch (cue) {
     case 'go':
       return 'Go';
     case 'paused':
       return 'Paused';
     case 'lap':
-      return lapMs === undefined ? '' : spokenTime(lapMs);
+      return lapMs === undefined ? '' : spokenTime(lapMs, precision);
     case 'best':
-      return lapMs === undefined ? '' : `Best, ${spokenTime(lapMs)}`;
+      return lapMs === undefined ? '' : `Best, ${spokenTime(lapMs, precision)}`;
     case 'armed':
       return '';
   }

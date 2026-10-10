@@ -6,7 +6,8 @@ import { TONES } from './cues.ts';
 import { createSpeech, pickVoice, RATE, type VoiceLike } from './speech.ts';
 import { createAudioUnlock, LOCK_CHECK_MS } from './unlock.ts';
 
-const ALL: AudioSettings = { beep: true, voice: true, announceBest: true };
+const ALL: AudioSettings = { beep: true, voice: true, announceBest: true, voicePrecision: 'hundredths' };
+const TENTHS: AudioSettings = { ...ALL, voicePrecision: 'tenths' };
 
 describe('announce', () => {
   it('phrases per cue (spec §2.3)', () => {
@@ -28,7 +29,18 @@ describe('announce', () => {
     expect(announce('best', 12340, { ...ALL, announceBest: false })).toEqual({ tone: 'best', text: '12.34' });
   });
 
-  it('defaults have everything on', () => {
+  it('tenths: one decimal in every lap phrase; voice off still mutes', () => {
+    expect(announce('best', 12340, TENTHS)).toEqual({ tone: 'best', text: 'Best, 12.3' });
+    expect(announce('lap', 65340, TENTHS)).toEqual({ tone: 'lap', text: '1 minute 5.3' });
+    expect(announce('best', 12340, { ...TENTHS, announceBest: false })).toEqual({
+      tone: 'best',
+      text: '12.3',
+    });
+    expect(announce('go', undefined, TENTHS)).toEqual({ tone: 'go', text: 'Go' });
+    expect(announce('best', 12340, { ...TENTHS, voice: false })).toEqual({ tone: 'best', text: '' });
+  });
+
+  it('defaults have everything on, hundredths', () => {
     expect(DEFAULTS.audio).toEqual(ALL);
   });
 });
@@ -86,6 +98,14 @@ describe('createAnnouncer', () => {
     a.cue('lap', 12340, { ...ALL, voice: false });
     expect(play).toHaveBeenCalledOnce();
     expect(said).toEqual(['12.34']);
+  });
+
+  it('says the tenths phrase', () => {
+    const { speech, said } = fakeSpeech();
+    const a = createAnnouncer({ speech, unlock: unlocked, play: () => {} });
+    a.cue('lap', 12340, TENTHS);
+    a.cue('best', 12345, TENTHS);
+    expect(said).toEqual(['12.3', 'Best, 12.4']);
   });
 
   it('no tone without a context (not unlocked / locked)', () => {

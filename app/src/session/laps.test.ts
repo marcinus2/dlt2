@@ -115,5 +115,24 @@ describe('speechText', () => {
     ['best', undefined, ''],
   ] as const)('%s %s → %s', (cue, ms, text) => {
     expect(speechText(cue, ms)).toBe(text);
+    expect(speechText(cue, ms, 'hundredths')).toBe(text);
+  });
+
+  it.each([
+    ['go', undefined, 'Go'],
+    ['paused', undefined, 'Paused'],
+    ['armed', undefined, ''],
+    ['lap', 12340, '12.3'],
+    ['best', 12340, 'Best, 12.3'],
+    ['lap', 12345, '12.4'], // shown 12.35, rounded half up
+    ['lap', 12349, '12.4'], // shown 12.35 (rounding the raw ms would give 12.3)
+    ['lap', 12344, '12.3'], // shown 12.34
+    ['lap', 65340, '1 minute 5.3'],
+    ['best', 59950, 'Best, 1 minute 0.0'],
+    ['lap', 125000, '2 minutes 5.0'],
+    ['lap', 12000, '12.0'],
+    ['lap', undefined, ''],
+  ] as const)('tenths: %s %s → %s', (cue, ms, text) => {
+    expect(speechText(cue, ms, 'tenths')).toBe(text);
   });
 });

@@ -38,6 +38,12 @@ describe('settings storage', () => {
     expect(createSettingsStorage(backend).load()).toEqual(s);
   });
 
+  it('a saved spoken precision survives a reload', () => {
+    const backend = memoryBackend();
+    createSettingsStorage(backend).save(setSetting(DEFAULTS, 'audio.voicePrecision', 'tenths'));
+    expect(createSettingsStorage(backend).load().audio.voicePrecision).toBe('tenths');
+  });
+
   it('load sanitizes stored values', () => {
     const backend = memoryBackend({ [SETTINGS_KEY]: JSON.stringify({ camera: { fps: 25, width: 320 } }) });
     const s = createSettingsStorage(backend).load();
