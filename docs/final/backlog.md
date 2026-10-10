@@ -4,7 +4,7 @@
 
 [ ] add best 3 consecutive laps mode. get ready screen. after clicking get ready there should be another screen added with two options (buttons): best lap, best 3 laps. 
 
-[ ] arm beep should be louder
+[x] arm beep should be louder — [spec](specs/louder-arm-beep.md)
 
 [ ] get ready screen. live camera preview. user can swith between live preview and difference preview. this may help to pinpoint problems with object detection and setting up phone in correct way to obtain best results.
 

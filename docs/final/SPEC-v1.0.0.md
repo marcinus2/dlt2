@@ -172,7 +172,7 @@ Hard-coded constants that stay as they are: `MIN_START` 0.002, guard size 80×60
 | iOS silent switch | Web Audio is muted by the ring/silent switch. Set `navigator.audioSession.type = 'playback'` where available (Safari 17+, verify). Whether speech obeys the switch: verify in M6. |
 | Voice choice | Prefer an `en-*` voice with `localService: true` (desktop Chrome's "Google" voices need the network). Load with `getVoices()` + `voiceschanged`. No voice → beep only, and Configuration shows "Voice not available". |
 | Latency | Beep < 20 ms. Speech typically 100–400 ms after priming; the first utterance without priming can take ~1 s. Call `speechSynthesis.cancel()` before each new utterance so a lap never queues behind an old one. Rate 1.1. |
-| Cues | `armed`: soft 440 Hz 120 ms · `go` (first pass): 660→990 Hz + "Go" · `lap`: 880 Hz 60 ms (PoC) + "12.34" · `best`: lap beep + "Best, 12.34" · `paused` (auto): 990→495 Hz + "Paused". |
+| Cues | `armed`: 440 Hz 200 ms, the loudest cue (gain 0.5) · `go` (first pass): 660→990 Hz + "Go" · `lap`: 880 Hz 60 ms (PoC) + "12.34" · `best`: lap beep + "Best, 12.34" · `paused` (auto): 990→495 Hz + "Paused". |
 
 ### 2.4 Main thread vs Worker
 
