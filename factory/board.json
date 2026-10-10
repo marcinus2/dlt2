@@ -37,6 +37,32 @@
       "builder": "ab76e569e77723fe6",
       "note": "",
       "updated": "2026-10-10T22:47:34Z"
+    },
+    {
+      "id": "003-get-ready-calibration",
+      "title": "Get ready preview with calibration access",
+      "branch": "factory/003-get-ready-calibration",
+      "stage": "needs-human",
+      "round": 2,
+      "maxRound": 3,
+      "reworks": 0,
+      "reviews": {
+        "security": "PASS",
+        "ux": "PASS",
+        "ui": "PASS",
+        "code": "PASS"
+      },
+      "rounds": [
+        {
+          "security": "PASS",
+          "ux": "PASS",
+          "ui": "CHANGES",
+          "code": "PASS"
+        }
+      ],
+      "builder": "ad625668c218e9235",
+      "note": "diff ~820 lines (over ~500) and Difference view + Calibrate need a real-phone check",
+      "updated": "2026-10-10T23:28:14Z"
     }
   ]
 }
