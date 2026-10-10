@@ -13,6 +13,7 @@ describe('migrateV1', () => {
         'audio.announceBest',
         'audio.beep',
         'audio.voice',
+        'audio.voicePrecision',
         'camera.deviceId',
         'camera.facing',
         'detection.roi',

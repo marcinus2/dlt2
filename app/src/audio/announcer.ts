@@ -14,7 +14,7 @@ export interface Announcement {
 
 export function announce(cue: Cue, lapMs: Ms | undefined, s: AudioSettings): Announcement {
   const phrase = cue === 'best' && !s.announceBest ? 'lap' : cue;
-  return { tone: s.beep ? cue : null, text: s.voice ? speechText(phrase, lapMs) : '' };
+  return { tone: s.beep ? cue : null, text: s.voice ? speechText(phrase, lapMs, s.voicePrecision) : '' };
 }
 
 export interface Announcer {

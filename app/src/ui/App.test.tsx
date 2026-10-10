@@ -1,6 +1,8 @@
-import { act, fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { initialState, reduce } from '../app/machine.ts';
+import { DEFAULTS } from '../settings/schema.ts';
+import { createSettingsStorage, memoryBackend, SETTINGS_KEY } from '../settings/storage.ts';
 import { noopEffects, renderWithStore, testStore } from '../test/ui.tsx';
 import { App } from './App.tsx';
 import { buildLabel } from './build-info.ts';
@@ -82,7 +84,7 @@ describe('audio UI (M6)', () => {
 
   it('no banner when beeps and voice are both off', () => {
     const fx = noopEffects();
-    fx.settings.save({ ...fx.settings.load(), audio: { beep: false, voice: false, announceBest: true } });
+    fx.settings.save({ ...fx.settings.load(), audio: { ...DEFAULTS.audio, beep: false, voice: false } });
     const state = reduce(reduce(initialState, { type: 'GET_READY' }).state, { type: 'CAMERA_LIVE' }).state;
     const store = testStore({ effects: fx, state: reduce(state, { type: 'START' }).state });
     renderWithStore(<App />, store);
@@ -97,6 +99,21 @@ describe('audio UI (M6)', () => {
     expect(screen.queryByText(/Voice not available/)).toBeNull();
     act(() => store.getState().setUi({ voiceAvailable: false }));
     expect(screen.getByText(/Voice not available/)).toBeTruthy();
+  });
+
+  it('Spoken precision: choosing 12.3 and Save stores tenths', () => {
+    const backend = memoryBackend();
+    const fx = { ...noopEffects(), settings: createSettingsStorage(backend) };
+    const store = testStore({ effects: fx, state: reduce(initialState, { type: 'NAV_CONFIG' }).state });
+    renderWithStore(<App />, store);
+    fireEvent.click(screen.getByRole('button', { name: /^Audio/ }));
+    const group = screen.getByRole('group', { name: 'Spoken precision' });
+    const option = (name: string) => within(group).getByRole('button', { name });
+    expect(option('12.34').getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(option('12.3'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(store.getState().saved.audio.voicePrecision).toBe('tenths');
+    expect(JSON.parse(backend.getItem(SETTINGS_KEY) ?? '{}').audio.voicePrecision).toBe('tenths');
   });
 });
 

@@ -334,6 +334,18 @@ export const SCHEMA: readonly FieldMeta[] = [
     help: 'Says each lap time, e.g. “12.34”.',
   },
   {
+    key: 'audio.voicePrecision',
+    type: 'enum',
+    label: 'Spoken precision',
+    group: 'audio',
+    default: 'hundredths',
+    options: [
+      { value: 'hundredths', label: '12.34' },
+      { value: 'tenths', label: '12.3' },
+    ],
+    help: 'Tenths are quicker to hear mid-flight. The screen always shows hundredths.',
+  },
+  {
     key: 'audio.announceBest',
     type: 'bool',
     label: 'Announce best',

@@ -19,7 +19,7 @@ All decisions are settled (2026-10-02). D1–D4 and D6–D10 use the recommended
 | D6 | **App backgrounded or screen locked mid-session** ✅ decided | **Auto-pause**: the same as STOP, plus a banner and an audible "paused" cue. | The camera stops anyway (iOS ends the track, Android freezes it), so pausing explicitly avoids a fake lap spanning the gap. |
 | D7 | **Repo layout and deployment** ✅ decided | New project in `app/` at the repo root. GitHub Pages serves v1 at the root URL and the PoC at `/poc/` (without its service worker) until v1.1. | Keeps the PoC usable as a tuning tool. Alternative: replace the PoC in place. |
 | D8 | **Gate: PoC Phase 3 field test** ✅ decided | Run it in parallel with M1–M4. It must be done before M5 freezes the detection defaults. | Real whoop/ceiling accuracy hasn't been measured yet (see [findings](../PoC/first-tests-findings.md)). It is the biggest product risk. |
-| D9 | **Spoken phrases** ✅ decided | First pass: "Go". Each lap: "12.34" (2 decimals). New best: "Best, 12.34". Paused: "Paused". English only. | Short enough to finish well before the next lap (≥ 5 s indoors). Lap number off by default. |
+| D9 | **Spoken phrases** ✅ decided | First pass: "Go". Each lap: "12.34" (2 decimals; `audio.voicePrecision` = `tenths` says "12.3"). New best: "Best, 12.34". Paused: "Paused". English only. | Short enough to finish well before the next lap (≥ 5 s indoors). Lap number off by default. |
 | D10 | **UI framework** ✅ decided | React 19 + TS. | Best support for Motion and the test tooling. If the JS budget (≤ 130 KB gz) is at risk, lazy-load the Configuration tuning panel and debug tools instead of switching framework. |
 
 ---
@@ -96,6 +96,7 @@ The PoC only checks types and finite values (`storage.js`). The only bounds anyw
 | **new** `camera.facing` | `'user'｜'environment'` | `'user'` | — | — | Camera |
 | **new** `camera.deviceId` | string ｜ null | null | — | — | Camera (falls back to `facing` if missing) |
 | **new** `audio.beep` / `audio.voice` / `audio.announceBest` | bool | true / true / true | — | — | Audio |
+| **new** `audio.voicePrecision` | `'hundredths'｜'tenths'` | `'hundredths'` | — | — | Audio › Spoken precision (`12.34` / `12.3`; [spec](specs/spoken-lap-decimal.md)) |
 
 Hard-coded constants that stay as they are: `MIN_START` 0.002, guard size 80×60, luma weights.
 
@@ -315,7 +316,7 @@ CONTINUE:  standby, detector reset (warm-up)        // next PASS re-starts the r
 - **Best** = min `ms` over all laps (ties → the earlier lap). If the latest lap is best, the big number turns green with a `BEST` badge. Otherwise the best row in the list is green with a ★ badge. Colour is never the only cue.
 - **Display format**: `ss.cc` below 60 s, `m:ss.cc` above (rounded to 10 ms; the timing resolution is ≈ 33 ms at 30 fps, so 3 decimals would be false precision).
 - **Big display before the first lap**: `--.--` with "Waiting for first pass" (stand-by), then "Lap 1 running" after the first pass. There is no ticking clock.
-- **Spoken format**: "12.34"; ≥ 60 s "1 minute 5.34".
+- **Spoken format**: "12.34"; ≥ 60 s "1 minute 5.34". With `audio.voicePrecision` = `tenths`: the displayed centiseconds rounded half up to one decimal, "12.3", "1 minute 5.3" (12.35 on screen → "12.4"; 59.95 → "1 minute 0.0"). The screen always shows hundredths.
 
 ### 3.4 Edge cases
 
@@ -554,7 +555,9 @@ export interface CameraSettings {
   width: number; height: number; fps: number; fpsExact: boolean;
   exposureManual: boolean; exposureTime: number; focusLock: boolean;
 }
-export interface AudioSettings { beep: boolean; voice: boolean; announceBest: boolean }
+export interface AudioSettings {
+  beep: boolean; voice: boolean; announceBest: boolean; voicePrecision: 'hundredths' | 'tenths';
+}
 export interface CalibrationSettings { durationMs: Ms; k: number }
 export interface Settings {
   version: 2; camera: CameraSettings; detection: DetectionSettings;
