@@ -42,7 +42,7 @@
       "id": "003-get-ready-calibration",
       "title": "Get ready preview with calibration access",
       "branch": "factory/003-get-ready-calibration",
-      "stage": "needs-human",
+      "stage": "merged",
       "round": 2,
       "maxRound": 3,
       "reworks": 0,
@@ -61,8 +61,8 @@
         }
       ],
       "builder": "ad625668c218e9235",
-      "note": "diff ~820 lines (over ~500) and Difference view + Calibrate need a real-phone check",
-      "updated": "2026-10-10T23:28:14Z"
+      "note": "approved by human",
+      "updated": "2026-10-10T23:40:26Z"
     }
   ]
 }
