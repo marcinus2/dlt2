@@ -2,23 +2,14 @@
 // and Calibrate. Lazy chunk, mounted only while tuning. Per-frame samples never reach React state:
 // the meter and progress bar are written through refs from requestAnimationFrame.
 import { Check, Crosshair, LoaderCircle } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
-import { type Calibration, createCalibrator } from '../../engine/calibration.ts';
+import { useEffect, useRef } from 'react';
 import type { Roi } from '../../engine/types.ts';
-import { field, type RatioField, type SettingKey } from '../../settings/schema.ts';
 import { CameraErrorCard } from '../components/CameraErrorCard.tsx';
 import { CameraLayer, useVideoSize } from '../components/CameraLayer.tsx';
 import { RoiOverlay } from '../components/RoiOverlay.tsx';
 import { useApp } from '../store.tsx';
 import { meterPos } from './meter.ts';
-
-const pct = (v: number) => `${+(v * 100).toPrecision(3)}%`;
-
-/** Calibrated ratio → the field's range, 3 significant digits. */
-function fitRatio(key: SettingKey, v: number): number {
-  const f = field(key) as RatioField;
-  return Number(Math.min(f.max, Math.max(f.min, v)).toPrecision(3));
-}
+import { pct, useCalibration } from './useCalibration.ts';
 
 /** What the engine processes: the draft ROI as of the last valid draft (only those reach it). */
 function useEngineRoi(): Roi {
@@ -97,7 +88,7 @@ function RatioMeter() {
       if (fresh && bar.current && fill.current && value.current) {
         fresh = false;
         const over = ratio >= startRef.current;
-        fill.current.style.transform = `scaleX(${meterPos(ratio)})`;
+        fill.current.style.scale = `${meterPos(ratio)} 1`; // `scale-x-0` sets `scale`, not `transform`
         fill.current.classList.toggle('bg-best', over);
         fill.current.classList.toggle('bg-accent', !over);
         value.current.textContent = pct(ratio);
@@ -148,50 +139,18 @@ function RatioMeter() {
   );
 }
 
-type Outcome = { kind: 'done'; c: Calibration } | { kind: 'failed' } | null;
-
 function Calibrate() {
   const live = useApp((s) => s.state.camera === 'live');
   const cal = useApp((s) => s.draft.calibration);
   const calValid = useApp((s) => !s.errors['calibration.durationMs'] && !s.errors['calibration.k']);
   const setDraftValues = useApp((s) => s.setDraftValues);
-  const onSample = useApp((s) => s.onSample);
-  const [running, setRunning] = useState(false);
-  const [outcome, setOutcome] = useState<Outcome>(null);
-  const progress = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!running || !live) {
-      setRunning(false);
-      return;
-    }
-    const calibrator = createCalibrator(cal.durationMs, cal.k);
-    let p = 0;
-    let raf = 0;
-    const off = onSample((x) => {
-      const step = calibrator.add(x.t, x.ratio, x.global);
-      if (!step.done) {
-        p = step.progress;
-        return;
-      }
-      off();
-      setRunning(false);
-      if (!step.result) return setOutcome({ kind: 'failed' });
-      const startRatio = fitRatio('detection.startRatio', step.result.startRatio);
-      const endRatio = Math.min(startRatio, fitRatio('detection.endRatio', step.result.endRatio));
-      setDraftValues({ 'detection.startRatio': startRatio, 'detection.endRatio': endRatio });
-      setOutcome({ kind: 'done', c: { ...step.result, startRatio, endRatio } });
-    });
-    const draw = () => {
-      if (progress.current) progress.current.style.transform = `scaleX(${p})`;
-      raf = requestAnimationFrame(draw);
-    };
-    raf = requestAnimationFrame(draw);
-    return () => {
-      off();
-      cancelAnimationFrame(raf);
-    };
-  }, [running, live, cal.durationMs, cal.k, onSample, setDraftValues]);
+  const { running, outcome, progress, toggle } = useCalibration({
+    live,
+    durationMs: cal.durationMs,
+    k: cal.k,
+    onResult: (r) =>
+      setDraftValues({ 'detection.startRatio': r.startRatio, 'detection.endRatio': r.endRatio }),
+  });
 
   return (
     <div className="flex flex-col gap-2">
@@ -199,10 +158,7 @@ function Calibrate() {
         <button
           type="button"
           disabled={!live || !calValid}
-          onClick={() => {
-            setOutcome(null);
-            setRunning(!running);
-          }}
+          onClick={toggle}
           className="inline-flex min-h-12 items-center gap-2 rounded-full border border-accent px-5 font-semibold text-accent disabled:opacity-40"
         >
           <Crosshair aria-hidden size={18} />

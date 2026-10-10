@@ -1,5 +1,6 @@
 // Flows 1–2 (spec §5.4) in sim mode, plus keyboard and layout-shift checks (plan 2.10).
 import { expect, test } from '@playwright/test';
+import { SETTINGS_KEY } from '../src/settings/storage.ts';
 import { chip, fastSettings, hero, historyRows, pass, SIM_URL, startSession } from './helpers.ts';
 
 test.beforeEach(async ({ page }) => fastSettings(page));
@@ -126,4 +127,35 @@ test('full flow by keyboard: Space = primary action, P = pass, Esc closes dialog
   await expect(page.getByRole('dialog')).toBeHidden();
   await expect(page.getByRole('button', { name: 'New session' })).toBeFocused(); // focus restored
   await expect(chip(page)).toHaveText('Stand-by');
+});
+
+test('Get Ready: Calibrate saves at once, survives a reload, shows in Configuration; Cancel keeps it', async ({
+  page,
+}) => {
+  const startRatio = () =>
+    page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? '{}').detection.startRatio, SETTINGS_KEY);
+  await page.goto(SIM_URL);
+  await page.getByRole('button', { name: 'Get ready!' }).click();
+  await expect(page.getByTestId('camera-health')).toBeVisible();
+  await page.getByRole('button', { name: 'Calibrate' }).click();
+  await expect(page.getByText('Calibrating — keep the scene still…')).toBeVisible();
+  await expect(page.getByTestId('calibration-result')).toContainText('Calibrated and saved', {
+    timeout: 10_000,
+  });
+  const saved = await startRatio();
+  expect(saved).not.toBe(0.02);
+
+  // Cancel: a second (random) run would change the value; it must stay.
+  await page.getByRole('button', { name: 'Calibrate' }).click();
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByText('Calibrating — keep the scene still…')).toHaveCount(0);
+  await page.waitForTimeout(3500); // longer than the 3 s run
+  expect(await startRatio()).toBe(saved);
+  await expect(page.getByTestId('calibration-result')).toHaveCount(0);
+
+  await page.reload();
+  await page.getByRole('button', { name: 'Configuration' }).click();
+  await expect(page.getByRole('textbox', { name: 'Start ratio' })).toHaveValue(
+    String(+(saved * 100).toPrecision(6)),
+  );
 });

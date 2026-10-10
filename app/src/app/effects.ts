@@ -196,6 +196,9 @@ export function createEffectRunner(fx: Effects, host: RunnerHost) {
         subscribe();
         fx.engine.reset();
         break;
+      case 'engine.update':
+        fx.engine.update(host.saved().detection);
+        break;
       case 'engine.stop':
         for (const off of engineSubs) off();
         engineSubs = [];

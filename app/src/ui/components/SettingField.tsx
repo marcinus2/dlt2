@@ -318,24 +318,33 @@ function Toggle({ value, onChange, id, describedBy }: ControlProps<FieldMeta>) {
   );
 }
 
-function SegmentGroup<V extends string>({
+/** Pressed-button group (enum settings, ROI presets, Get Ready's preview mode). */
+export function SegmentGroup<V extends string>({
   options,
   value,
   onSelect,
   labelId,
   describedBy,
+  disabled,
+  className,
 }: {
   options: readonly { value: V; label: string }[];
   value: V | null;
   onSelect: (v: V) => void;
   labelId: string;
-  describedBy: string;
+  describedBy?: string;
+  disabled?: boolean;
+  className?: string;
 }) {
   return (
     <fieldset
       aria-labelledby={labelId}
       aria-describedby={describedBy}
-      className="flex flex-wrap gap-1 rounded-card border border-border bg-surface-2 p-1"
+      disabled={disabled}
+      className={cx(
+        'flex flex-wrap gap-1 rounded-card border border-border bg-surface-2 p-1 disabled:opacity-40',
+        className,
+      )}
     >
       {options.map((o) => (
         <button

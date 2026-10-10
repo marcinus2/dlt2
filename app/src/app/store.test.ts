@@ -296,6 +296,60 @@ describe('store + effect runner', () => {
     expect(JSON.parse(f.backend.getItem('dronelap.settings.v2') ?? '{}').camera.fps).toBe(60);
   });
 
+  it('applyCalibration on Get Ready (live) saves, persists and applies the ratios', async () => {
+    const { f, store, dispatch, state } = setup();
+    dispatch({ type: 'GET_READY' });
+    await f.resolveCamera();
+    store.getState().applyCalibration({ startRatio: 0.031, endRatio: 0.015 });
+    const { saved, draft } = store.getState();
+    expect(saved.detection).toMatchObject({ startRatio: 0.031, endRatio: 0.015 });
+    expect(draft).toEqual(saved);
+    expect(saved.detection.pixelDiffThreshold).toBe(DEFAULTS.detection.pixelDiffThreshold);
+    const stored = JSON.parse(f.backend.getItem('dronelap.settings.v2') ?? '{}');
+    expect(stored.detection).toMatchObject({ startRatio: 0.031, endRatio: 0.015 });
+    expect(f.updated).toEqual([saved.detection]);
+    expect(state()).toMatchObject({ screen: 'getReady', camera: 'live', configDirty: false });
+  });
+
+  it('applyCalibration off Get Ready or without a live camera changes nothing', async () => {
+    const check = (t: ReturnType<typeof setup>) => {
+      t.store.getState().applyCalibration({ startRatio: 0.031, endRatio: 0.015 });
+      expect(t.store.getState().saved.detection).toEqual(DEFAULTS.detection);
+      expect(t.store.getState().draft.detection).toEqual(DEFAULTS.detection);
+      expect(t.f.backend.getItem('dronelap.settings.v2')).toBeNull();
+      expect(t.f.updated).toEqual([]);
+    };
+    check(setup()); // welcome
+    const starting = setup();
+    starting.dispatch({ type: 'GET_READY' });
+    check(starting);
+    const config = setup();
+    config.dispatch({ type: 'NAV_CONFIG' });
+    config.dispatch({ type: 'TUNE_START' });
+    await config.f.resolveCamera();
+    check(config);
+  });
+
+  it('applyCalibration with a failing storage toasts and still applies for this run', async () => {
+    const { f, store, dispatch } = setup();
+    f.failSaves();
+    dispatch({ type: 'GET_READY' });
+    await f.resolveCamera();
+    store.getState().applyCalibration({ startRatio: 0.031, endRatio: 0.015 });
+    expect(store.getState().ui.toast?.text).toBe(STORAGE_TOAST);
+    expect(store.getState().saved.detection.startRatio).toBe(0.031);
+    expect(f.updated.at(-1)?.startRatio).toBe(0.031);
+  });
+
+  it('luma(): the analyzer pair with a real pipeline, null in sim', () => {
+    expect(setup().store.getState().luma()).toBeNull();
+    const f = fakeEffects();
+    const pair = { latest: new Uint8Array(4), previous: new Uint8Array(4), width: 2, height: 2, valid: true };
+    const diag = { analyzer: { luma: () => pair } } as unknown as NonNullable<Effects['diag']>;
+    const store = createAppStore({ effects: { ...f.effects, diag } });
+    expect(store.getState().luma()).toBe(pair);
+  });
+
   it('editing back to the saved value is clean again', () => {
     const { store, dispatch, state } = setup();
     dispatch({ type: 'NAV_CONFIG' });

@@ -13,7 +13,7 @@ All decisions are settled (2026-10-02). D1–D4 and D6–D10 use the recommended
 |---|---|---|---|
 | D1 | **Which timestamp a lap uses, and when it is recorded** ✅ decided | Lap time = difference between the backdated `startT` values of accepted passes. The lap is **recorded at `MOTION_END`** (≈100–300 ms after the pass). | If we recorded at `MOTION_START`, a pass that later turns out `REJECTED` (long motion) would need its beep and spoken time taken back. `Δpeak` is the alternative; switch only if the PoC Phase 3 data shows a lower spread. |
 | D2 | **Default camera** ✅ decided | Front camera (`facingMode: 'user'`). The phone lies face-up on the floor and films the ceiling. You can pick another camera or the rear one in Configuration. | Matches the brainstorm setup, and the screen stays visible. The rear camera gives better images but needs a stand. |
-| D3 | **Live tuning panel on Configuration** ✅ decided (preview + diff + ratio meter + **Calibrate**) | **Yes**, as a collapsible "Test & calibrate" section. | `calibrationMs`/`calibrationK`/thresholds can't be tuned without seeing the camera, and Calibrate is a PoC feature. |
+| D3 | **Live tuning panel on Configuration** ✅ decided (preview + diff + ratio meter + **Calibrate**) | **Yes**, as a collapsible "Test & calibrate" section. Get Ready also has a Live / Difference preview toggle and **Calibrate**, which runs on the saved settings and saves at once ([spec](specs/get-ready-calibration.md)). | `calibrationMs`/`calibrationK`/thresholds can't be tuned without seeing the camera, and Calibrate is a PoC feature. |
 | D4 | **Developer tools** ✅ decided (video-file replay, CSV export, HUD, event log) | Keep them, hidden behind `?debug=1` as a "Diagnostics" section on Configuration. | Phase 3 and tuning on new phones still need them. Leaving them out of v1 would mean keeping the PoC alive. |
 | D5 | **When to ask for confirmation** ✅ decided | `New session` / `Configuration` during Session or Paused ask **"End session?"** only when the session has data (laps, or timing running). **END asks for confirmation when laps ≥ 1**; with 0 laps it goes straight to Welcome. | Lap data can't be recovered once discarded, so every action that throws laps away asks first. |
 | D6 | **App backgrounded or screen locked mid-session** ✅ decided | **Auto-pause**: the same as STOP, plus a banner and an audible "paused" cue. | The camera stops anyway (iOS ends the track, Android freezes it), so pausing explicitly avoids a fake lap spanning the gap. |
@@ -220,7 +220,7 @@ GitHub Pages via a CI workflow (`ci.yml`, replacing `deploy.yml`): build `app/` 
 | Screen | Content (top → bottom) | Top menu |
 |---|---|---|
 | **Welcome** | Top menu · big centered **GET READY!** · footer: install link / iOS hint / update toast | `New session` · `Configuration` |
-| **Get Ready** | Top menu · live camera preview with ROI overlay (the border flashes on a detected pass so you can test with a hand wave) · camera health line (`30 fps`, warnings) · big red **START** | same |
+| **Get Ready** | Top menu · live camera preview with ROI overlay (the border flashes on a detected pass so you can test with a hand wave) · camera health line (`30 fps`, warnings) · `Preview` toggle **Live / Difference** (diff canvas of the processed region; screen state, Live on every open) · **Calibrate** on the saved `calibration.*` (the result is saved and applied at once, no Save step) · big red **START** | same |
 | **Session** | Top menu · status strip (`ARMING` → `STAND-BY` → `TIMING`, fps warning) · **(b)** large latest lap time + label (`LAP 5`, `BEST` badge if best) · summary `Laps 5 · Best 11.98` · **(c)** history list, newest first, best in fluorescent green · **(d)** big red **STOP** | same (with confirmation, D5) |
 | **Session – paused** | Same as Session, status `PAUSED` (+ reason banner when auto-paused), camera and detection stopped; **CONTINUE** (primary) + **END** (secondary, confirms when laps ≥ 1) instead of STOP | same (with confirmation) |
 | **Configuration** | Grouped settings (Camera, Detection, Timing filters, Audio, Performance; *Advanced* collapsed in each) · ROI presets · "Test & calibrate" (D3) · Reset to defaults · Diagnostics (`?debug=1`, D4) | `New session` · **`Save`** |
@@ -276,6 +276,7 @@ Dialogs (`leaveSession`, `endSession`, `discardConfig`) are a `dialog` field ove
 | GetReady | `RETRY` | — | CameraStarting | `camera.start` |
 | GetReady | `START` | camera live | Session/Arming, empty session, timing `standby` | `audio.unlock`, `engine.reset` (warm-up) |
 | GetReady | `APP_HIDDEN` / `APP_VISIBLE` | — | stays; camera stopped / restarted | `engine.stop`+`camera.stop` / `camera.start` |
+| GetReady | `CALIBRATED` | camera live | stays | `settings.commit`, `engine.update` |
 | GetReady | `NAV_NEW_SESSION` / `NAV_CONFIG` | — | Welcome / Configuration | stop all |
 | Session | `ARMED` | — | StandBy | `audio.cue armed` |
 | Session | `PASS` | timing `standby` | Timing, `refT = pass.startT` | `audio.cue go` |
@@ -411,10 +412,10 @@ WELCOME                         GET READY                        SESSION (timing
 │      │  GET READY! │      │   │ │   └ ─ ─ ─ ─ ─ ─ ┘     │ │    │  Laps 5 · Best 11.98      │
 │       ╲           ╱       │   │ └───────────────────────┘ │    │ ───────────────────────── │
 │        ╰─────────╯        │   │  ✓ 30 fps · front camera  │    │  #4   12.87               │
-│     (neon cyan, glow)     │   │        ╭─────────╮        │    │  #3   11.98  ★ BEST       │
-│                           │   │       │  START  │ (red)   │    │  #2   13.40               │
-│                           │   │        ╰─────────╯        │    │  #1   14.02               │
-│ Install app · v1.0.0      │   │                           │    │ ┌───────────────────────┐ │
+│     (neon cyan, glow)     │   │ [Live|Diff]  ⌖ Calibrate  │    │  #3   11.98  ★ BEST       │
+│                           │   │        ╭─────────╮        │    │  #2   13.40               │
+│                           │   │       │  START  │ (red)   │    │  #1   14.02               │
+│ Install app · v1.0.0      │   │        ╰─────────╯        │    │ ┌───────────────────────┐ │
 └───────────────────────────┘   └───────────────────────────┘    │ │         STOP          │ │
                                                                  │ └───────────────────────┘ │
                                                                  └───────────────────────────┘

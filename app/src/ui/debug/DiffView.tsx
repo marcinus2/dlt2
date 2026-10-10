@@ -4,6 +4,7 @@
 import { useEffect, useRef } from 'react';
 import type { LumaPair } from '../../app/diagnostics.ts';
 import type { MotionSample, Unsubscribe } from '../../engine/types.ts';
+import { cx } from '../cx.ts';
 import { token } from './token.ts';
 
 function rgb(color: string): [number, number, number] {
@@ -17,19 +18,31 @@ export function DiffView({
   subscribe,
   luma,
   threshold,
+  mirrored = false,
+  onDrawn,
+  className = 'max-h-64 w-auto max-w-full rounded-card border border-border bg-surface',
 }: {
   subscribe: (cb: (s: Readonly<MotionSample>) => void) => Unsubscribe;
   luma: () => Readonly<LumaPair> | null;
   threshold: number;
+  /** Front camera: flip like the live preview. */
+  mirrored?: boolean;
+  /** Once, after the first frame is drawn. */
+  onDrawn?: () => void;
+  /** Size and frame; replaces the Diagnostics default. */
+  className?: string;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const thr = useRef(threshold);
   thr.current = threshold;
+  const drawnCb = useRef(onDrawn);
+  drawnCb.current = onDrawn;
 
   useEffect(() => {
     let fresh = false;
     let raf = 0;
     let img: ImageData | null = null;
+    let drawn = false;
     const [ar, ag, ab] = rgb(token('accent'));
     const off = subscribe(() => {
       fresh = true;
@@ -56,6 +69,10 @@ export function DiffView({
           d[o + 3] = 255;
         }
         ctx.putImageData(img, 0, 0);
+        if (!drawn) {
+          drawn = true;
+          drawnCb.current?.();
+        }
       }
       raf = requestAnimationFrame(draw);
     };
@@ -73,7 +90,7 @@ export function DiffView({
       height={1}
       role="img"
       aria-label="Diff view of the processed region"
-      className="max-h-64 w-auto max-w-full rounded-card border border-border bg-surface [image-rendering:pixelated]"
+      className={cx(className, '[image-rendering:pixelated]', mirrored && '-scale-x-100')}
     />
   );
 }
