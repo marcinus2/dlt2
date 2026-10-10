@@ -1,0 +1,12 @@
+# Factory backlog
+
+`/factory next` runs the first unchecked item and marks it `[x] … → <job-id>`.
+Items come from [docs/final/backlog.md](../docs/final/backlog.md). One line each; the spec-writer fills in the details.
+
+- [ ] Arm beep should be louder.
+- [ ] Spoken lap time to one decimal place, as a new setting in Configuration (mid-flight the pilot doesn't need hundredths).
+- [ ] After End session, show the best lap and the best 3 consecutive laps.
+- [ ] Idle too long during an active session: voice warning, then switch to Paused to save battery (the drone may need repairs that take more than 2 minutes). The pilot un-pauses manually. The idle time can be changed in Configuration.
+- [ ] Best 3 consecutive laps mode: after Get ready, a screen with two buttons, Best lap and Best 3 laps.
+- [ ] Get ready screen: live camera preview, switchable between live and difference view, to help position the phone and debug detection.
+- [ ] Make calibration easier to reach, e.g. from the Get ready preview.

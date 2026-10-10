@@ -1,0 +1,27 @@
+# Factory (local automation workspace)
+factory/jobs/
+
+# Dependencies & build output
+node_modules/
+dist/
+coverage/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Env & local config
+.env
+.env.*
+*.local
+.claude/settings.local.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp

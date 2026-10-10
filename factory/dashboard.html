@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Software Factory</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --line: #e3e6eb; --text: #14181f; --muted: #6b7380;
+    --accent: #2563eb; --pass: #15803d; --pass-bg: #dcfce7; --chg: #b45309; --chg-bg: #fef3c7;
+    --pend: #9aa1ad; --human: #c026d3; --human-bg: #fae8ff; --merged: #475569;
+    --shadow: 0 1px 2px rgb(0 0 0 / .06), 0 1px 1px rgb(0 0 0 / .04);
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1016; --panel: #151a22; --line: #252c38; --text: #e8ebf0; --muted: #8a93a3;
+      --accent: #60a5fa; --pass: #4ade80; --pass-bg: #12301f; --chg: #fbbf24; --chg-bg: #3a2a0c;
+      --pend: #5b6474; --human: #e879f9; --human-bg: #3b1340; --merged: #94a3b8;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: baseline; gap: 12px; padding: 18px 24px 8px; flex-wrap: wrap; }
+  h1 { font-size: 17px; margin: 0; letter-spacing: -.01em; }
+  .sub { color: var(--muted); font-size: 12px; }
+  .status { margin-left: auto; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--pass); }
+  .dot.off { background: var(--chg); }
+
+  .board { display: grid; grid-template-columns: repeat(6, minmax(210px, 1fr)); gap: 12px; padding: 12px 24px 32px; overflow-x: auto; }
+  .col { min-width: 0; }
+  @media (max-width: 720px) {
+    header, .hint { padding-left: 16px; padding-right: 16px; }
+    .board { grid-template-columns: 1fr; padding: 8px 16px 24px; }
+    .col h2 .arrow { display: none; }
+  }
+  .col h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px; display: flex; gap: 6px; align-items: center; }
+  .col h2 .n { font-family: var(--mono); background: var(--line); color: var(--text); border-radius: 8px; padding: 0 6px; font-size: 10px; }
+  .col h2 .arrow { margin-left: auto; opacity: .5; }
+  .col.human h2 { color: var(--human); }
+  .col.human h2 .n { background: var(--human); color: var(--panel); }
+  .lane { display: flex; flex-direction: column; gap: 8px; min-height: 80px; border-radius: 10px; padding: 6px; background: color-mix(in srgb, var(--line) 35%, transparent); }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 10px 11px; box-shadow: var(--shadow); cursor: pointer; text-align: left; color: inherit; font: inherit; width: 100%; transition: border-color .15s, transform .15s; }
+  .card:hover { border-color: var(--accent); }
+  .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .card.human { border: 1.5px solid var(--human); background: linear-gradient(var(--human-bg), var(--panel) 70%); }
+  .card.merged { opacity: .7; }
+  .id { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .title { font-weight: 600; margin: 2px 0 6px; }
+  .meta { font-size: 11px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; }
+  .meta code { font-family: var(--mono); }
+  .note { margin-top: 8px; font-size: 12px; color: var(--human); font-weight: 500; }
+  .cmd { font-family: var(--mono); font-size: 11px; margin-top: 4px; color: var(--muted); }
+
+  .rounds { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+  .round { display: flex; align-items: center; gap: 4px; }
+  .round .r { font-family: var(--mono); font-size: 10px; color: var(--muted); width: 20px; }
+  .chip { font-size: 10px; font-weight: 600; letter-spacing: .03em; padding: 2px 6px; border-radius: 5px; border: 1px dashed var(--pend); color: var(--pend); }
+  .chip.PASS { border: 1px solid transparent; background: var(--pass-bg); color: var(--pass); }
+  .chip.CHANGES { border: 1px solid transparent; background: var(--chg-bg); color: var(--chg); }
+  .chip.pending { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  @media (prefers-reduced-motion: reduce) { .chip.pending { animation: none; } }
+
+  .empty { color: var(--muted); font-size: 12px; padding: 10px; text-align: center; }
+  .hint { padding: 0 24px 24px; color: var(--muted); font-size: 12px; }
+  .hint code { font-family: var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+
+  /* drawer */
+  .scrim { position: fixed; inset: 0; background: rgb(0 0 0 / .3); opacity: 0; pointer-events: none; transition: opacity .2s; }
+  .scrim.open { opacity: 1; pointer-events: auto; }
+  aside { position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 100vw); background: var(--panel); border-left: 1px solid var(--line); transform: translateX(100%); transition: transform .22s ease; display: flex; flex-direction: column; }
+  aside.open { transform: none; }
+  @media (prefers-reduced-motion: reduce) { aside, .scrim { transition: none; } }
+  .dhead { padding: 16px 20px 10px; border-bottom: 1px solid var(--line); display: flex; align-items: flex-start; gap: 12px; }
+  .dhead .title { font-size: 16px; margin: 2px 0 0; }
+  .close { margin-left: auto; background: none; border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 4px 10px; cursor: pointer; font: inherit; }
+  .tabs { display: flex; gap: 4px; padding: 8px 20px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .tab { font: 12px var(--mono); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--line); background: none; color: var(--muted); cursor: pointer; }
+  .tab[aria-selected="true"] { background: var(--text); color: var(--panel); border-color: var(--text); }
+  .tab.PASS, .tab.APPROVE { color: var(--pass); } .tab.CHANGES { color: var(--chg); } .tab.ESCALATE, .tab.BLOCKED { color: var(--human); }
+  .tab[aria-selected="true"].PASS, .tab[aria-selected="true"].CHANGES, .tab[aria-selected="true"].APPROVE, .tab[aria-selected="true"].ESCALATE { color: var(--panel); }
+  .doc { padding: 18px 24px 40px; overflow-y: auto; flex: 1; }
+
+  /* markdown */
+  .md h1, .md h2, .md h3 { line-height: 1.25; margin: 1.3em 0 .5em; } .md h1 { font-size: 20px; } .md h2 { font-size: 16px; } .md h3 { font-size: 14px; }
+  .md > :first-child { margin-top: 0; }
+  .md p, .md ul, .md ol, .md pre, .md table, .md blockquote { margin: 0 0 .8em; }
+  .md ul, .md ol { padding-left: 1.4em; }
+  .md code { font-family: var(--mono); font-size: 12px; background: color-mix(in srgb, var(--line) 60%, transparent); padding: 1px 4px; border-radius: 4px; }
+  .md pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; overflow-x: auto; }
+  .md pre code { background: none; padding: 0; }
+  .md table { border-collapse: collapse; font-size: 13px; display: block; overflow-x: auto; }
+  .md th, .md td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; vertical-align: top; }
+  .md blockquote { border-left: 3px solid var(--line); padding-left: 12px; color: var(--muted); }
+  .md a { color: var(--accent); }
+  .verdict { display: inline-block; font: 600 12px var(--mono); padding: 4px 10px; border-radius: 6px; margin-bottom: 14px; }
+  .verdict.PASS, .verdict.APPROVE, .verdict.READY { background: var(--pass-bg); color: var(--pass); }
+  .verdict.CHANGES { background: var(--chg-bg); color: var(--chg); }
+  .verdict.ESCALATE, .verdict.BLOCKED { background: var(--human-bg); color: var(--human); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Software Factory</h1>
+  <span class="sub" id="sub">spec → build → 4 reviews → approve → merge</span>
+  <span class="status"><span class="dot" id="dot"></span><span id="status">connecting…</span></span>
+</header>
+<main class="board" id="board"></main>
+<p class="hint">Run <code>/factory &lt;feature&gt;</code> or <code>/factory next</code> in Claude Code. Click a card to read its files.</p>
+<div class="scrim" id="scrim"></div>
+<aside id="drawer" aria-hidden="true">
+  <div class="dhead"><div><div class="id" id="dId"></div><div class="title" id="dTitle"></div></div><button class="close" id="close">Close</button></div>
+  <nav class="tabs" id="tabs" role="tablist"></nav>
+  <div class="doc md" id="doc"></div>
+</aside>
+
+<script>
+const STAGES = [
+  ["spec", "Spec"], ["build", "Build"], ["review", "Review"],
+  ["approve", "Approve"], ["needs-human", "Needs human"], ["merged", "Merged"],
+];
+const REVIEWERS = [["security", "SEC"], ["ux", "UX"], ["ui", "UI"], ["code", "CODE"]];
+const DEMO = { jobs: [
+  { id: "001-louder-arm-beep", title: "Louder arm beep", branch: "factory/001-louder-arm-beep", stage: "merged", round: 1,
+    reviews: { security: "PASS", ux: "PASS", ui: "PASS", code: "PASS" }, rounds: [], updated: "" },
+  { id: "002-one-decimal-readout", title: "One-decimal lap readout", branch: "factory/002-one-decimal-readout", stage: "review", round: 2,
+    reviews: { security: "PASS", ux: "PASS", ui: "pending", code: "pending" },
+    rounds: [{ security: "PASS", ux: "CHANGES", ui: "PASS", code: "CHANGES" }], updated: "" },
+  { id: "003-idle-auto-pause", title: "Idle auto-pause", branch: "factory/003-idle-auto-pause", stage: "needs-human", round: 1,
+    reviews: { security: "PASS", ux: "PASS", ui: "PASS", code: "PASS" }, rounds: [],
+    note: "Needs a real-phone check of the voice warning timing", updated: "" },
+  { id: "004-best-3-summary", title: "Best 3 laps summary", branch: "factory/004-best-3-summary", stage: "build", round: 0, reviews: {}, rounds: [], updated: "" },
+] };
+const demo = new URLSearchParams(location.search).has("demo");
+const $ = (id) => document.getElementById(id);
+let board = { jobs: [] }, lastText = "", openId = null, openFile = null;
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const ago = (iso) => {
+  const s = (Date.now() - Date.parse(iso)) / 1000;
+  if (!isFinite(s)) return "";
+  return s < 60 ? "just now" : s < 3600 ? `${Math.floor(s / 60)}m ago` : s < 86400 ? `${Math.floor(s / 3600)}h ago` : `${Math.floor(s / 86400)}d ago`;
+};
+
+// ---- board ----
+function chips(reviews, label) {
+  return `<div class="round"><span class="r">${label}</span>${REVIEWERS.map(([k, short]) => {
+    const v = reviews?.[k] ?? "pending";
+    return `<span class="chip ${esc(v)}" title="${k}: ${esc(v)}">${short}</span>`;
+  }).join("")}</div>`;
+}
+
+function card(j) {
+  const past = (j.rounds ?? []).map((r, i) => chips(r, `R${i + 1}`)).join("");
+  const now = j.round > 0 ? chips(j.reviews, `R${j.round}`) : "";
+  const human = j.stage === "needs-human";
+  return `<button class="card ${human ? "human" : ""} ${j.stage === "merged" ? "merged" : ""}" data-id="${esc(j.id)}">
+    <div class="id">${esc(j.id)}</div>
+    <div class="title">${esc(j.title || j.id)}</div>
+    <div class="meta"><code>${esc(j.branch)}</code>${j.updated ? `<span>${esc(ago(j.updated))}</span>` : ""}</div>
+    ${past || now ? `<div class="rounds">${past}${now}</div>` : ""}
+    ${human ? `<div class="note">${esc(j.note || "Waiting for a human")}</div>
+      <div class="cmd">/factory approve ${esc(j.id)}</div><div class="cmd">/factory rework ${esc(j.id)} &lt;note&gt;</div>` : ""}
+  </button>`;
+}
+
+function render() {
+  $("board").innerHTML = STAGES.map(([key, label], i) => {
+    const jobs = board.jobs.filter((j) => j.stage === key);
+    return `<section class="col ${key === "needs-human" ? "human" : ""}">
+      <h2>${label}<span class="n">${jobs.length}</span>${i < 3 ? '<span class="arrow">→</span>' : ""}</h2>
+      <div class="lane">${jobs.length ? jobs.map(card).join("") : '<div class="empty">—</div>'}</div>
+    </section>`;
+  }).join("");
+}
+
+async function poll() {
+  if (demo) {
+    board = DEMO; render(); $("status").textContent = "demo data"; $("sub").textContent = "demo data · remove ?demo for the live board";
+    return;
+  }
+  try {
+    const res = await fetch("board.json", { cache: "no-store" });
+    if (!res.ok) throw new Error(res.status);
+    const text = await res.text();
+    $("dot").classList.remove("off");
+    $("status").textContent = `live · ${new Date().toLocaleTimeString()}`;
+    if (text === lastText) return;
+    lastText = text; board = JSON.parse(text); render();
+    if (openId) openJob(openId, openFile, true);
+  } catch {
+    $("dot").classList.add("off");
+    $("status").textContent = "can't read board.json — run: cd factory && python3 -m http.server";
+  }
+}
+
+// ---- drawer ----
+function filesFor(j) {
+  const f = [["spec", "spec.md"], ["build", "build.md"]];
+  for (let r = 1; r <= (j.round || 0); r++) for (const [k] of REVIEWERS) f.push([`r${r}·${k}`, `round-${r}/review-${k}.md`]);
+  for (let k = 1; k <= (j.reworks || 0); k++) f.push([`rework-${k}`, `rework-${k}.md`]);
+  f.push(["decision", "decision.md"]);
+  return f;
+}
+
+async function fetchText(path) {
+  try { const r = await fetch(path, { cache: "no-store" }); return r.ok ? await r.text() : null; } catch { return null; }
+}
+
+const verdictOf = (text) => (text?.match(/^\s*(?:VERDICT:\s*|STATUS:\s*)?(PASS|CHANGES|APPROVE|ESCALATE|READY|BLOCKED)\b/) || [])[1];
+
+async function openJob(id, file, refresh) {
+  const j = board.jobs.find((x) => x.id === id);
+  if (!j) return;
+  openId = id;
+  $("dId").textContent = `${j.id} · ${j.stage}${j.round ? ` · round ${j.round}` : ""}`;
+  $("dTitle").textContent = j.title || j.id;
+  $("drawer").classList.add("open"); $("drawer").setAttribute("aria-hidden", "false"); $("scrim").classList.add("open");
+  const files = filesFor(j);
+  const texts = demo ? files.map(() => null) : await Promise.all(files.map(([, p]) => fetchText(`jobs/${id}/${p}`)));
+  const present = files.map((f, i) => [...f, texts[i]]).filter((f) => f[2] !== null);
+  if (!present.length) {
+    $("tabs").innerHTML = ""; $("doc").innerHTML = `<p class="empty">${demo ? "Demo data has no files." : "No files yet."}</p>`;
+    return;
+  }
+  if (!file || !present.some((f) => f[1] === file)) file = present[present.length - 1][1];
+  openFile = file;
+  $("tabs").innerHTML = present.map(([label, p, t]) =>
+    `<button class="tab ${verdictOf(t) ?? ""}" role="tab" aria-selected="${p === file}" data-file="${esc(p)}">${esc(label)}</button>`).join("");
+  const scroll = $("doc").scrollTop;
+  $("doc").innerHTML = markdown(present.find((f) => f[1] === file)[2]);
+  if (refresh) $("doc").scrollTop = scroll;
+}
+
+function closeJob() {
+  openId = openFile = null;
+  $("drawer").classList.remove("open"); $("drawer").setAttribute("aria-hidden", "true"); $("scrim").classList.remove("open");
+}
+
+// ---- tiny markdown (escapes first; supports what the agents write) ----
+function inline(s) {
+  return esc(s)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>")
+    .replace(/\[([^\]]+)\]\(((?:https?:\/\/|\.{0,2}\/|#)[^)\s]*)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+}
+
+function markdown(src) {
+  const lines = src.replace(/\r/g, "").split("\n");
+  let out = "", i = 0;
+  const v = lines[0]?.match(/^\s*(?:VERDICT:\s*|STATUS:\s*)?(PASS|CHANGES|APPROVE|ESCALATE|READY|BLOCKED)\b(.*)$/);
+  if (v) { out += `<div class="verdict ${v[1]}">${esc(lines[0].trim())}</div>`; i = 1; }
+  while (i < lines.length) {
+    const l = lines[i];
+    if (/^```/.test(l)) {
+      const buf = []; i++;
+      while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
+      i++; out += `<pre><code>${esc(buf.join("\n"))}</code></pre>`; continue;
+    }
+    const h = l.match(/^(#{1,4})\s+(.*)/);
+    if (h) { const n = Math.min(h[1].length, 3); out += `<h${n}>${inline(h[2])}</h${n}>`; i++; continue; }
+    if (/^\s*(---|\*\*\*)\s*$/.test(l)) { out += "<hr>"; i++; continue; }
+    if (/^\s*\|/.test(l)) {
+      const rows = [];
+      while (i < lines.length && /^\s*\|/.test(lines[i])) rows.push(lines[i++]);
+      const cells = (r) => r.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+      const body = rows.filter((r) => !/^\s*\|?[\s:-]+(\|[\s:-]+)+\|?\s*$/.test(r));
+      out += `<table>${body.map((r, k) => `<tr>${cells(r).map((c) => k === 0 && rows.length > 1 && body.length < rows.length ? `<th>${inline(c)}</th>` : `<td>${inline(c)}</td>`).join("")}</tr>`).join("")}</table>`;
+      continue;
+    }
+    if (/^\s*>/.test(l)) {
+      const buf = [];
+      while (i < lines.length && /^\s*>/.test(lines[i])) buf.push(lines[i++].replace(/^\s*>\s?/, ""));
+      out += `<blockquote>${inline(buf.join(" "))}</blockquote>`; continue;
+    }
+    const li = l.match(/^\s*([-*]|\d+\.)\s+/);
+    if (li) {
+      const tag = /\d/.test(li[1]) ? "ol" : "ul", items = [];
+      while (i < lines.length && /^\s*([-*]|\d+\.)\s+/.test(lines[i])) items.push(lines[i++].replace(/^\s*([-*]|\d+\.)\s+/, ""));
+      out += `<${tag}>${items.map((t) => `<li>${inline(t)}</li>`).join("")}</${tag}>`; continue;
+    }
+    if (!l.trim()) { i++; continue; }
+    const buf = [];
+    while (i < lines.length && lines[i].trim() && !/^(```|#{1,4}\s|\s*\||\s*>|\s*([-*]|\d+\.)\s)/.test(lines[i])) buf.push(lines[i++]);
+    out += `<p>${inline(buf.join(" "))}</p>`;
+  }
+  return out;
+}
+
+// ---- events ----
+$("board").addEventListener("click", (e) => { const c = e.target.closest(".card"); if (c) openJob(c.dataset.id); });
+$("tabs").addEventListener("click", (e) => { const t = e.target.closest(".tab"); if (t) openJob(openId, t.dataset.file); });
+$("close").addEventListener("click", closeJob);
+$("scrim").addEventListener("click", closeJob);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeJob(); });
+
+poll();
+if (!demo) setInterval(poll, 2000);
+</script>
+</body>
+</html>
