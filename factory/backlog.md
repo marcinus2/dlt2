@@ -10,3 +10,4 @@ Items come from [docs/final/backlog.md](../docs/final/backlog.md). One line each
 - [ ] Best 3 consecutive laps mode: after Get ready, a screen with two buttons, Best lap and Best 3 laps.
 - [ ] Get ready screen: live camera preview, switchable between live and difference view, to help position the phone and debug detection.
 - [ ] Make calibration easier to reach, e.g. from the Get ready preview.
+- [ ] Configuration: numeric segmented options (Spoken precision `12.34` / `12.3`) use JetBrains Mono like other numbers; text options stay in Inter.
