@@ -5,20 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Software Factory</title>
 <style>
+  /* dark is the default; light is opt-in via the header toggle (data-theme="light") */
   :root {
+    color-scheme: dark;
+    --bg: #0d1016; --panel: #151a22; --line: #252c38; --text: #e8ebf0; --muted: #8a93a3;
+    --accent: #60a5fa; --pass: #4ade80; --pass-bg: #12301f; --chg: #fbbf24; --chg-bg: #3a2a0c;
+    --pend: #5b6474; --human: #e879f9; --human-bg: #3b1340; --merged: #94a3b8;
+    --shadow: none;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
     --bg: #f6f7f9; --panel: #ffffff; --line: #e3e6eb; --text: #14181f; --muted: #6b7380;
     --accent: #2563eb; --pass: #15803d; --pass-bg: #dcfce7; --chg: #b45309; --chg-bg: #fef3c7;
     --pend: #9aa1ad; --human: #c026d3; --human-bg: #fae8ff; --merged: #475569;
     --shadow: 0 1px 2px rgb(0 0 0 / .06), 0 1px 1px rgb(0 0 0 / .04);
-    --mono: ui-monospace, "SF Mono", Menlo, monospace;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0d1016; --panel: #151a22; --line: #252c38; --text: #e8ebf0; --muted: #8a93a3;
-      --accent: #60a5fa; --pass: #4ade80; --pass-bg: #12301f; --chg: #fbbf24; --chg-bg: #3a2a0c;
-      --pend: #5b6474; --human: #e879f9; --human-bg: #3b1340; --merged: #94a3b8;
-      --shadow: none;
-    }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -28,6 +29,7 @@
   .status { margin-left: auto; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--pass); }
   .dot.off { background: var(--chg); }
+  .theme { font: 12px var(--mono); padding: 3px 8px; border-radius: 6px; border: 1px solid var(--line); background: none; color: var(--muted); cursor: pointer; }
 
   .board { display: grid; grid-template-columns: repeat(6, minmax(210px, 1fr)); gap: 12px; padding: 12px 24px 32px; overflow-x: auto; }
   .col { min-width: 0; }
@@ -108,6 +110,7 @@
   <h1>Software Factory</h1>
   <span class="sub" id="sub">spec → build → 4 reviews → approve → merge</span>
   <span class="status"><span class="dot" id="dot"></span><span id="status">connecting…</span></span>
+  <button class="theme" id="theme" type="button">Light</button>
 </header>
 <main class="board" id="board"></main>
 <p class="hint">Run <code>/factory &lt;feature&gt;</code> or <code>/factory next</code> in Claude Code. Click a card to read its files.</p>
@@ -291,6 +294,15 @@ function markdown(src) {
   }
   return out;
 }
+
+// ---- theme (dark unless the user picked light before) ----
+const setTheme = (light) => {
+  if (light) document.documentElement.dataset.theme = "light"; else delete document.documentElement.dataset.theme;
+  $("theme").textContent = light ? "Dark" : "Light";
+  try { localStorage.setItem("factory.theme", light ? "light" : "dark"); } catch {}
+};
+try { if (localStorage.getItem("factory.theme") === "light") setTheme(true); } catch {}
+$("theme").addEventListener("click", () => setTheme(document.documentElement.dataset.theme !== "light"));
 
 // ---- events ----
 $("board").addEventListener("click", (e) => { const c = e.target.closest(".card"); if (c) openJob(c.dataset.id); });
