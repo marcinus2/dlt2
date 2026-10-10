@@ -46,6 +46,10 @@ Branch: factory/<job-id> · Head: <short sha>
 ## Checks
 lint ✅ · typecheck ✅ · test ✅ (baseline failures: …) · build/size/e2e: ✅ / n/a
 
+## Visible changes
+What the pilot will see or hear differently, one line each, with where it shows
+(e.g. "New segmented control in Configuration › Audio"), or "none". Count changes made outside `ui/`.
+
 ## Round 1
 What changed, and the commits.
 ## Round 2

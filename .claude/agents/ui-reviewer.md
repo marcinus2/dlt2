@@ -18,7 +18,12 @@ Check:
 - Motion uses `motion` the way existing components do, and respects reduced motion.
 - New components reuse `ui/components/` and `cx.ts` instead of duplicating them.
 
-If nothing under `app/src/ui/` or `styles/` changed, say so and pass.
+Judge by what the user sees, not by which folders changed. Changes outside `ui/` can still change
+the screen: a field in `settings/schema.ts` adds a control in Configuration (drawn by `SettingField`),
+`app/machine.ts` decides which screen shows, and `formatLap` sets the times on screen. Start from the
+"Visible changes" line in `build.md`, then check the diff for any it missed. For each one, find the
+component that draws it and review the result. Pass without findings only when nothing visible
+changed, and name the paths you checked.
 
 Output: write your review to your output file with the Write tool. The orchestrator reads only that
 file, never your reply, so a verdict that isn't in the file doesn't count. Its first line is exactly

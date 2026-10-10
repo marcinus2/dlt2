@@ -21,6 +21,10 @@ Check:
 - Accessibility: tap targets, labels/roles, focus order, `prefers-reduced-motion`.
 - `?sim=1` and the state gallery (`?state=`) still cover the new states.
 
+Judge by what the user sees and hears, not by which folders changed: a field in `settings/schema.ts`,
+a state in `app/machine.ts` or a phrase in `session/laps.ts` changes the experience without touching
+`ui/`. Start from the "Visible changes" line in `build.md`, then check the diff for any it missed.
+
 Output: write your review to your output file with the Write tool. The orchestrator reads only that
 file, never your reply, so a verdict that isn't in the file doesn't count. Its first line is exactly
 `VERDICT: PASS` or `VERDICT: CHANGES`. Then a numbered list of
