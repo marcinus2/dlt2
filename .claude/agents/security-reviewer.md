@@ -22,6 +22,8 @@ to GitHub Pages. Look for:
 - Permissions: camera/audio requested outside a user gesture, or not released on pause or end.
 - Secrets or tokens committed.
 
-Output: the first line is exactly `VERDICT: PASS` or `VERDICT: CHANGES`. Then a numbered list of
+Output: write your review to your output file with the Write tool. The orchestrator reads only that
+file, never your reply, so a verdict that isn't in the file doesn't count. Its first line is exactly
+`VERDICT: PASS` or `VERDICT: CHANGES`. Then a numbered list of
 findings, each with `file:line`, the problem, and the fix. Use CHANGES only for real issues; put nits
 under a "Notes" heading, where they don't block the job.

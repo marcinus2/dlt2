@@ -83,7 +83,8 @@ Rewrite the whole file on every transition (Read, then Write). One object per jo
 1. round += 1. Move the previous `reviews` into `rounds` (if round > 1). Set every review to
    `pending`, `stage: review`. Create `$JOB/round-<round>/`.
 2. Spawn all 4 reviewers **in one message, in the background**. Each gets: `$JOB`, `$WT`, the branch,
-   the round number, and its output file `$JOB/round-<round>/review-<key>.md`.
+   the round number, its output file `$JOB/round-<round>/review-<key>.md`, and the line "Writing that
+   output file (first line `VERDICT: PASS` or `VERDICT: CHANGES`) is required; it is the only file you write."
 3. As each reviewer finishes, read the first line of its file (`VERDICT: PASS` / `VERDICT: CHANGES`)
    and update that chip on the board right away, so the dashboard fills in live.
 4. **WAIT FOR ALL.** The round is done only when all 4 files exist in the round folder. Never message the
@@ -100,7 +101,8 @@ If the builder can't be reached (new session, agent gone), spawn a fresh `builde
 
 ### Approve
 
-`stage: approve`. Spawn `approver` (foreground) with: `$JOB`, `$WT`, branch, `$JOB/decision.md`.
+`stage: approve`. Spawn `approver` (foreground) with: `$JOB`, `$WT`, branch, `$JOB/decision.md`, and the
+line "Writing that output file (first line `APPROVE` or `ESCALATE`) is required; it is the only file you write."
 Read the first line of decision.md:
 - `APPROVE` → **Merge**.
 - `ESCALATE` → **needs-human**, note = the approver's one-line reason.

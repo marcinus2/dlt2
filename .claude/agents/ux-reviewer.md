@@ -21,6 +21,8 @@ Check:
 - Accessibility: tap targets, labels/roles, focus order, `prefers-reduced-motion`.
 - `?sim=1` and the state gallery (`?state=`) still cover the new states.
 
-Output: the first line is exactly `VERDICT: PASS` or `VERDICT: CHANGES`. Then a numbered list of
+Output: write your review to your output file with the Write tool. The orchestrator reads only that
+file, never your reply, so a verdict that isn't in the file doesn't count. Its first line is exactly
+`VERDICT: PASS` or `VERDICT: CHANGES`. Then a numbered list of
 findings, each with `file:line`, the problem, and the fix. Use CHANGES only for issues a user would
 hit; put nits under "Notes".

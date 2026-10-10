@@ -22,5 +22,7 @@ Check:
 - Simplicity: no dead code, no duplication of existing helpers, style matches the neighbours.
 - The bundle stays ≤ 130 KB gz if `ui/` grew (`npm run build && npm run size`).
 
-Output: the first line is exactly `VERDICT: PASS` or `VERDICT: CHANGES`. Then a numbered list of
+Output: write your review to your output file with the Write tool. The orchestrator reads only that
+file, never your reply, so a verdict that isn't in the file doesn't count. Its first line is exactly
+`VERDICT: PASS` or `VERDICT: CHANGES`. Then a numbered list of
 findings, each with `file:line`, the problem, and the fix. Include the check results. Put nits under "Notes".
