@@ -12,7 +12,7 @@ export interface Tone {
 const LAP: Tone = { from: 880, to: 880, ms: 60, gain: 0.2 }; // the PoC beep
 
 export const TONES: Record<Cue, Tone> = {
-  armed: { from: 440, to: 440, ms: 120, gain: 0.1 },
+  armed: { from: 440, to: 440, ms: 200, gain: 0.5 }, // loudest: pilots stand away from the phone
   go: { from: 660, to: 990, ms: 180, gain: 0.2 },
   lap: LAP,
   best: LAP,
