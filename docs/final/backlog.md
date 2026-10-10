@@ -15,3 +15,5 @@
 [ ] after clicking end session best 3 consecutive laps time and best lap time should be displayed
 
 [ ] spoken precision setting: option labels 12.34 / 12.3 show in Inter, numbers should use JetBrains Mono (font-mono) like other times. only numeric option labels, not every segmented control.
+
+[ ] spoken feedback for Get Ready Calibrate: a short "Calibrated" / "Calibration failed" cue, so a pilot standing away from the phone knows the result.

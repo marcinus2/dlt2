@@ -74,6 +74,7 @@ describe('Get Ready preview and Calibrate', () => {
     expect(
       screen.getByText('Highlighted: pixels that changed. Only the detection region is shown.'),
     ).toBeTruthy();
+    expect(screen.getByText('Waiting for frames…')).toBeTruthy(); // no 2D context in happy-dom: nothing drawn
     expect(video.isConnected).toBe(false);
     expect(screen.queryByTestId('roi')).toBeNull();
 
@@ -96,6 +97,7 @@ describe('Get Ready preview and Calibrate', () => {
     fireEvent.click(calibrateButton());
     expect(screen.getByText('Calibrating — keep the scene still…')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
+    expect(screen.queryByText(/Keep the scene empty/)).toBeNull(); // one status slot
     emit(1000, 0, true); // first frame: excluded
     for (let t = 1033; t < 4000; t += 33) emit(t, t % 2 ? 0.004 : 0.006);
     emit(4000, 0.005);

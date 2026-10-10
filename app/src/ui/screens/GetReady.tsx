@@ -54,21 +54,24 @@ function DiffPreview({ mirrored }: { mirrored: boolean }) {
   const onSample = useApp((s) => s.onSample);
   const luma = useApp((s) => s.luma);
   const threshold = useApp((s) => s.saved.detection.pixelDiffThreshold);
+  const [drawn, setDrawn] = useState(false);
   return (
-    <div className="relative flex min-h-40 w-full flex-1 basis-0 flex-col items-center justify-center gap-2 overflow-hidden">
+    <div className="relative order-1 flex min-h-32 w-full flex-1 basis-0 flex-col items-center justify-center gap-2 overflow-hidden">
       {luma() === null ? (
         <p className="rounded-card border border-border bg-surface-2 p-4 text-center text-text-muted">
           Difference view needs the real camera.
         </p>
       ) : (
         <>
-          <div className="relative w-full flex-1 overflow-hidden rounded-card border border-border bg-surface-2">
+          <div className="relative flex w-full flex-1 items-center justify-center overflow-hidden rounded-card border border-border bg-surface-2">
+            {!drawn && <p className="text-sm text-text-muted">Waiting for frames…</p>}
             <Suspense fallback={null}>
               <DiffView
                 subscribe={onSample}
                 luma={luma}
                 threshold={threshold}
                 mirrored={mirrored}
+                onDrawn={() => setDrawn(true)}
                 className="absolute inset-0 size-full object-contain"
               />
             </Suspense>
@@ -82,69 +85,80 @@ function DiffPreview({ mirrored }: { mirrored: boolean }) {
   );
 }
 
-/** Preview toggle + Calibrate on the saved settings: the result is saved and applied at once (no Save). */
-function PreviewControls({ mode, onMode }: { mode: PreviewMode; onMode: (m: PreviewMode) => void }) {
-  const live = useApp((s) => s.state.camera === 'live');
-  const cal = useApp((s) => s.saved.calibration);
-  const applyCalibration = useApp((s) => s.applyCalibration);
-  const { running, outcome, progress, toggle } = useCalibration({
-    live,
-    durationMs: cal.durationMs,
-    k: cal.k,
-    onResult: applyCalibration,
-  });
+type Calibration = ReturnType<typeof useCalibration>;
+
+/** Preview toggle + Calibrate (portrait: under the health line; landscape: above START). */
+function PreviewControls({
+  mode,
+  onMode,
+  live,
+  cal,
+}: {
+  mode: PreviewMode;
+  onMode: (m: PreviewMode) => void;
+  live: boolean;
+  cal: Calibration;
+}) {
   const labelId = useId();
   return (
-    <div className="flex w-full max-w-[480px] flex-col gap-2">
-      <div className="flex flex-wrap items-center justify-center gap-3">
-        <span id={labelId} className="text-sm font-semibold text-text-muted">
-          Preview
-        </span>
-        <SegmentGroup
-          options={PREVIEW_OPTIONS}
-          value={mode}
-          onSelect={onMode}
-          labelId={labelId}
-          disabled={!live}
-          className="flex-nowrap"
-        />
-        <button
-          type="button"
-          disabled={!live}
-          onClick={toggle}
-          className="inline-flex min-h-12 min-w-40 items-center justify-center gap-2 rounded-full border border-accent px-5 font-semibold text-accent disabled:opacity-40"
-        >
-          <Crosshair aria-hidden size={18} />
-          {running ? 'Cancel' : 'Calibrate'}
-        </button>
-      </div>
-      <p className="text-center text-sm text-text-muted">
-        Keep the scene empty for {+(cal.durationMs / 1000).toFixed(1)} s.
-      </p>
-      {running && (
-        <div role="status" className="flex flex-col gap-1">
+    <div className="order-3 flex flex-wrap items-center justify-center gap-2">
+      <span id={labelId} className="sr-only">
+        Preview
+      </span>
+      <SegmentGroup
+        options={PREVIEW_OPTIONS}
+        value={mode}
+        onSelect={onMode}
+        labelId={labelId}
+        disabled={!live}
+        className="flex-nowrap"
+      />
+      <button
+        type="button"
+        disabled={!live}
+        onClick={cal.toggle}
+        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-accent px-4 font-semibold text-accent disabled:opacity-40"
+      >
+        <Crosshair aria-hidden size={18} />
+        {cal.running ? 'Cancel' : 'Calibrate'}
+      </button>
+    </div>
+  );
+}
+
+/** One fixed-height slot for the hint, progress and outcome, so the preview never resizes. */
+function CalibrationStatus({ cal, durationMs }: { cal: Calibration; durationMs: number }) {
+  const { running, outcome, progress } = cal;
+  return (
+    <div
+      role="status"
+      className="order-4 flex min-h-18 w-full max-w-[480px] flex-col justify-center gap-1 text-center"
+    >
+      {running ? (
+        <>
           <p className="font-semibold text-text">Calibrating — keep the scene still…</p>
           <div className="h-2 rounded-full bg-surface-2">
             <div ref={progress} className="h-full origin-left scale-x-0 rounded-full bg-accent" />
           </div>
-        </div>
-      )}
-      {outcome?.kind === 'failed' && (
-        <p role="status" className="font-semibold text-warn">
-          Calibration failed: no usable frames. Try again.
-        </p>
-      )}
-      {outcome?.kind === 'done' && (
-        <div role="status" data-testid="calibration-result" className="text-sm">
+        </>
+      ) : outcome?.kind === 'failed' ? (
+        <p className="font-semibold text-warn">Calibration failed: no usable frames. Try again.</p>
+      ) : outcome?.kind === 'done' ? (
+        <div data-testid="calibration-result">
           <p className="font-semibold text-text">
-            Calibrated and saved: start {pct(outcome.c.startRatio)} · end {pct(outcome.c.endRatio)}.
+            Calibrated and saved: start <span className="font-mono">{pct(outcome.c.startRatio)}</span> · end{' '}
+            <span className="font-mono">{pct(outcome.c.endRatio)}</span>.
           </p>
           {outcome.c.hint && (
-            <p className="font-semibold text-warn">
+            <p className="text-sm font-semibold text-warn">
               Idle noise is high: check the lighting, exposure and region.
             </p>
           )}
         </div>
+      ) : (
+        <p className="text-sm text-text-muted">
+          Keep the scene empty for {+(durationMs / 1000).toFixed(1)} s.
+        </p>
       )}
     </div>
   );
@@ -152,7 +166,9 @@ function PreviewControls({ mode, onMode }: { mode: PreviewMode; onMode: (m: Prev
 
 /**
  * Get Ready (spec §3.1): Live (ROI overlay + pass flash) or Difference preview, health line,
- * Calibrate on the saved settings, START.
+ * Calibrate on the saved settings (saved and applied at once, no Save), START.
+ * Portrait is one column (the two wrappers are `display: contents`, `order-*` sets the sequence);
+ * landscape puts preview, health and status left, controls and START right.
  */
 export function GetReady() {
   const camera = useApp((s) => s.state.camera);
@@ -162,39 +178,57 @@ export function GetReady() {
   const facing = useApp((s) => s.ui.cameraInfo?.facing ?? s.saved.camera.facing);
   const width = useApp((s) => s.ui.cameraInfo?.width ?? s.saved.camera.width);
   const height = useApp((s) => s.ui.cameraInfo?.height ?? s.saved.camera.height);
+  const calSettings = useApp((s) => s.saved.calibration);
+  const applyCalibration = useApp((s) => s.applyCalibration);
   const error = typeof camera === 'object' ? camera.error : null;
+  const live = camera === 'live';
   const frame = useVideoSize();
   const aspect = frame ? frame.width / frame.height : width / height;
   const [mode, setMode] = useState<PreviewMode>('live');
+  const cal = useCalibration({
+    live,
+    durationMs: calSettings.durationMs,
+    k: calSettings.k,
+    onResult: applyCalibration,
+  });
 
   return (
     <>
       <TopBar />
-      <main className="mx-auto flex min-h-0 w-full max-w-[480px] flex-1 flex-col items-center gap-4 px-safe py-4 landscape:max-w-[1040px] landscape:flex-row landscape:justify-center landscape:gap-8">
-        <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center gap-3 landscape:max-w-[640px] landscape:self-stretch">
+      <main className="mx-auto flex min-h-0 w-full max-w-[480px] flex-1 flex-col items-center gap-3 px-safe py-4 landscape:max-w-[1040px] landscape:flex-row landscape:justify-center landscape:gap-8 landscape:py-3">
+        <div className="contents landscape:flex landscape:min-h-0 landscape:w-full landscape:max-w-[640px] landscape:flex-1 landscape:flex-col landscape:items-center landscape:justify-center landscape:gap-2 landscape:self-stretch">
           {error ? (
-            <CameraErrorCard error={error} onRetry={() => dispatch({ type: 'RETRY' })} />
+            <div className="order-1">
+              <CameraErrorCard error={error} onRetry={() => dispatch({ type: 'RETRY' })} />
+            </div>
           ) : mode === 'diff' ? (
             <DiffPreview mirrored={facing === 'user'} />
           ) : (
-            <div className="flex min-h-40 w-full flex-1 basis-0 items-center justify-center overflow-hidden">
+            <div className="order-1 flex min-h-32 w-full flex-1 basis-0 items-center justify-center overflow-hidden">
               <CameraLayer mirrored={facing === 'user'} aspect={aspect} fit>
                 <RoiOverlay roi={roi} flash={flash} frame={frame} />
               </CameraLayer>
             </div>
           )}
-          <HealthLine />
-          <PreviewControls mode={mode} onMode={setMode} />
+          <div className="order-2">
+            <HealthLine />
+          </div>
+          <CalibrationStatus cal={cal} durationMs={calSettings.durationMs} />
         </div>
-        {error?.kind !== 'notFound' && (
-          <BigButton
-            label="Start"
-            tone="danger"
-            size="compact"
-            disabled={camera !== 'live'}
-            onPress={() => dispatch({ type: 'START' })}
-          />
-        )}
+        <div className="contents landscape:flex landscape:flex-col landscape:items-center landscape:justify-center landscape:gap-4">
+          <PreviewControls mode={mode} onMode={setMode} live={live} cal={cal} />
+          {error?.kind !== 'notFound' && (
+            <div className="order-5">
+              <BigButton
+                label="Start"
+                tone="danger"
+                size="compact"
+                disabled={!live}
+                onPress={() => dispatch({ type: 'START' })}
+              />
+            </div>
+          )}
+        </div>
       </main>
     </>
   );

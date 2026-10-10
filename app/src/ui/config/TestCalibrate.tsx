@@ -88,7 +88,7 @@ function RatioMeter() {
       if (fresh && bar.current && fill.current && value.current) {
         fresh = false;
         const over = ratio >= startRef.current;
-        fill.current.style.transform = `scaleX(${meterPos(ratio)})`;
+        fill.current.style.scale = `${meterPos(ratio)} 1`; // `scale-x-0` sets `scale`, not `transform`
         fill.current.classList.toggle('bg-best', over);
         fill.current.classList.toggle('bg-accent', !over);
         value.current.textContent = pct(ratio);
