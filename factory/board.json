@@ -1,7 +1,7 @@
 { "jobs": [ {
   "id": "001-louder-arm-beep", "title": "Louder arm beep after Get Ready", "branch": "factory/001-louder-arm-beep",
-  "stage": "needs-human", "round": 1, "maxRound": 3, "reworks": 0,
+  "stage": "merged", "round": 1, "maxRound": 3, "reworks": 0,
   "reviews": { "security": "PASS", "ux": "PASS", "ui": "PASS", "code": "PASS" },
   "rounds": [],
-  "builder": "a1d8a4b9223b42daf", "note": "audio loudness change needs a real-phone listen that tests cannot replace", "updated": "2026-10-10T22:24:05Z"
+  "builder": "a1d8a4b9223b42daf", "note": "approved by human", "updated": "2026-10-10T22:33:22Z"
 } ] }
