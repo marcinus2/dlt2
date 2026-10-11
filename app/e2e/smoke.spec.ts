@@ -20,12 +20,3 @@ test('no external requests (fonts are self-hosted)', async ({ page, baseURL }) =
   expect(external).toEqual([]);
   expect(await page.evaluate(() => document.fonts.check('16px "Inter Variable"'))).toBe(true);
 });
-
-test('PoC is served at /poc/ without a service worker', async ({ page, request }) => {
-  const res = await request.get('./poc/');
-  test.skip(!res.ok(), 'dist/poc not built (run `npm run build:pages`)');
-  await page.goto('./poc/');
-  await expect(page).toHaveTitle(/PoC/);
-  await page.waitForLoadState('load');
-  expect(await page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length)).toBe(0);
-});

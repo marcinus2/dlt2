@@ -17,7 +17,7 @@ All decisions are settled (2026-10-02). D1–D4 and D6–D10 use the recommended
 | D4 | **Developer tools** ✅ decided (video-file replay, CSV export, HUD, event log) | Keep them, hidden behind `?debug=1` as a "Diagnostics" section on Configuration. | Phase 3 and tuning on new phones still need them. Leaving them out of v1 would mean keeping the PoC alive. |
 | D5 | **When to ask for confirmation** ✅ decided | `New session` / `Configuration` during Session or Paused ask **"End session?"** only when the session has data (laps, or timing running). **END asks for confirmation when laps ≥ 1**; with 0 laps it goes straight to Welcome. | Lap data can't be recovered once discarded, so every action that throws laps away asks first. |
 | D6 | **App backgrounded or screen locked mid-session** ✅ decided | **Auto-pause**: the same as STOP, plus a banner and an audible "paused" cue. | The camera stops anyway (iOS ends the track, Android freezes it), so pausing explicitly avoids a fake lap spanning the gap. |
-| D7 | **Repo layout and deployment** ✅ decided | New project in `app/` at the repo root. GitHub Pages serves v1 at the root URL and the PoC at `/poc/` (without its service worker) until v1.1. | Keeps the PoC usable as a tuning tool. Alternative: replace the PoC in place. |
+| D7 | **Repo layout and deployment** ✅ decided | New project in `app/` at the repo root. GitHub Pages serves v1 at the root URL. The PoC is no longer deployed (formerly at `/poc/`). | v1 has the Diagnostics tools, so the PoC is not needed for tuning. |
 | D8 | **Gate: PoC Phase 3 field test** ✅ decided | Run it in parallel with M1–M4. It must be done before M5 freezes the detection defaults. | Real whoop/ceiling accuracy hasn't been measured yet (see [findings](../PoC/first-tests-findings.md)). It is the biggest product risk. |
 | D9 | **Spoken phrases** ✅ decided | First pass: "Go". Each lap: "12.34" (2 decimals; `audio.voicePrecision` = `tenths` says "12.3"). New best: "Best, 12.34". Paused: "Paused". English only. | Short enough to finish well before the next lap (≥ 5 s indoors). Lap number off by default. |
 | D10 | **UI framework** ✅ decided | React 19 + TS. | Best support for Motion and the test tooling. If the JS budget (≤ 130 KB gz) is at risk, lazy-load the Configuration tuning panel and debug tools instead of switching framework. |
@@ -209,7 +209,7 @@ The engine is built behind `FrameSource → FrameAnalyzer → Detector` so B or 
 
 ### 2.7 Hosting and deployment
 
-GitHub Pages via a CI workflow (`ci.yml`, replacing `deploy.yml`): build `app/` → `dist/`, build the PoC into `dist/poc/` with SW registration removed (D7). It deploys on every push to `main` and on manual dispatch from any branch, so work in progress can be checked on real devices. Keep `base: './'` so the app works at any sub-path. HTTPS comes from Pages.
+GitHub Pages via a CI workflow (`ci.yml`, replacing `deploy.yml`): build `app/` → `dist/`. It deploys on every push to `main` and on manual dispatch from any branch, so work in progress can be checked on real devices. Keep `base: './'` so the app works at any sub-path. HTTPS comes from Pages.
 
 ---
 
