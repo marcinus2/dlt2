@@ -2,7 +2,7 @@
 
 [x] reading of the lap time to only one decimal place - new setting. during a flight, user dont need to now exact time. we can add setting for that into settings section for user to choose. — [spec](specs/spoken-lap-decimal.md)
 
-[ ] add best 3 consecutive laps mode. get ready screen. after clicking get ready there should be another screen added with two options (buttons): best lap, best 3 laps. 
+[x] add best 3 consecutive laps mode. get ready screen. after clicking get ready there should be another screen added with two options (buttons): best lap, best 3 laps. — [spec](specs/best-three-consecutive.md)
 
 [x] arm beep should be louder — [spec](specs/louder-arm-beep.md)
 
