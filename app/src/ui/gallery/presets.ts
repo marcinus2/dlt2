@@ -180,6 +180,12 @@ export const PRESETS: Preset[] = [
     events: [...STANDBY, ...SOME_LAPS, { type: 'STOP' }, { type: 'END' }],
   },
   {
+    id: 'summary',
+    title: 'Session summary (END → confirm)',
+    group: 'Session',
+    events: [...STANDBY, ...SOME_LAPS, { type: 'STOP' }, { type: 'END' }, { type: 'CONFIRM' }],
+  },
+  {
     id: 'dialogDiscard',
     title: 'Discard changes?',
     group: 'Dialogs',

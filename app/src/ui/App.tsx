@@ -9,13 +9,14 @@ import { Configuration } from './screens/Configuration.tsx';
 import { GetReady } from './screens/GetReady.tsx';
 import { Mode } from './screens/Mode.tsx';
 import { Session } from './screens/Session.tsx';
+import { Summary } from './screens/Summary.tsx';
 import { Welcome } from './screens/Welcome.tsx';
 import { useApp } from './store.tsx';
 import { useKeyboard } from './useKeyboard.ts';
 
 /** Session and Paused share one layout (no transition between them). */
 type View = Exclude<Screen, 'paused'>;
-const ORDER: Record<View, number> = { welcome: 0, mode: 1, getReady: 2, session: 3, config: 4 };
+const ORDER: Record<View, number> = { welcome: 0, mode: 1, getReady: 2, session: 3, summary: 4, config: 5 };
 
 function Transition({ dir, children }: { dir: number; children: ReactNode }) {
   const reduced = useReducedMotion();
@@ -50,6 +51,7 @@ export function App() {
         {view === 'mode' && <Mode />}
         {view === 'getReady' && <GetReady />}
         {view === 'session' && <Session />}
+        {view === 'summary' && <Summary />}
         {view === 'config' && <Configuration />}
       </Transition>
       <Dialogs />

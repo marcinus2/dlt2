@@ -19,6 +19,7 @@ export function primaryEvent(s: AppState): AppEvent | null {
     case 'paused':
       return { type: 'CONTINUE' };
     case 'config':
+    case 'summary':
       return null;
   }
 }
