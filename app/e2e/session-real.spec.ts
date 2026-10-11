@@ -42,7 +42,9 @@ async function getReady(page: Page) {
   });
 }
 
-test('flow 1 (real): GET READY → START → laps match the clip, best highlighted', async ({ page }) => {
+test('flow 1 (real): GET READY → START → laps match the clip, best highlighted', { tag: '@full' }, async ({
+  page,
+}) => {
   await getReady(page);
   await page.getByRole('button', { name: 'Start' }).click();
   await expect(chip(page)).toHaveText('Stand-by', PASS_WAIT); // after warm-up
@@ -58,9 +60,9 @@ test('flow 1 (real): GET READY → START → laps match the clip, best highlight
   expect(Math.abs(best - 3)).toBeLessThanOrEqual(TOL_S);
 });
 
-test('flow 2 (real): STOP releases the camera, CONTINUE drops the in-progress lap, END → dialog', async ({
-  page,
-}) => {
+test('flow 2 (real): STOP releases the camera, CONTINUE drops the in-progress lap, END → dialog', {
+  tag: '@full',
+}, async ({ page }) => {
   await getReady(page);
   await page.getByRole('button', { name: 'Start' }).click();
   await expect(summary(page)).toContainText('Laps 2', { timeout: 25_000 });
@@ -86,9 +88,9 @@ test('flow 2 (real): STOP releases the camera, CONTINUE drops the in-progress la
   await expect(page.getByRole('button', { name: 'Get ready!' })).toBeVisible();
 });
 
-test('Get Ready (real): Difference shows the diff canvas; back to Live, START still works', async ({
-  page,
-}) => {
+test('Get Ready (real): Difference shows the diff canvas; back to Live, START still works', {
+  tag: '@full',
+}, async ({ page }) => {
   await getReady(page);
   await page.getByRole('button', { name: 'Difference' }).click();
   const diff = page.getByRole('img', { name: 'Diff view of the processed region' });

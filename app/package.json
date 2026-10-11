@@ -13,7 +13,8 @@
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit",
     "size": "node scripts/check-size.mjs",
-    "screenshots": "node --experimental-strip-types e2e/tools/screenshots.ts"
+    "screenshots": "node --experimental-strip-types e2e/tools/screenshots.ts",
+    "test:e2e:quick": "playwright test --project=chromium --reporter=dot --grep-invert @full"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",

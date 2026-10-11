@@ -9,7 +9,9 @@ const hudLine = async (page: Page, key: string) =>
   ((await page.getByTestId('engine-hud').textContent()) ?? '').split('\n').find((l) => l.startsWith(key)) ??
   '';
 
-test('diagnostics: HUD, event log, diff view, CSV export; Stop test stops the frames', async ({ page }) => {
+test('diagnostics: HUD, event log, diff view, CSV export; Stop test stops the frames', {
+  tag: '@full',
+}, async ({ page }) => {
   await page.goto('./?debug=1');
   await page.getByRole('button', { name: 'Configuration' }).click();
   await page.getByRole('button', { name: /^Test & calibrate/ }).click();

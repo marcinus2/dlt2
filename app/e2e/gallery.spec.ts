@@ -10,7 +10,7 @@ test('the gallery lists every preset', async ({ page }) => {
 });
 
 for (const p of PRESETS) {
-  test(`axe + layout: ${p.group} / ${p.title}`, async ({ page }) => {
+  test(`axe + layout: ${p.group} / ${p.title}`, { tag: '@full' }, async ({ page }) => {
     await page.goto(`./?state=${p.id}`);
     await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'SIMULATED' })).toBeVisible();

@@ -51,7 +51,7 @@ test('invalid values disable Save; clean Save leaves without the dialog', async 
 
 // Real pipeline (plan 7.4, 7.6): Chromium's fake camera plays the synthetic clip (passes at 1.0 / 5.5 /
 // 8.5 s of a 12 s loop → laps 4.5 / 3.0 / 4.5 s).
-test.describe('real engine', () => {
+test.describe('real engine', { tag: '@full' }, () => {
   test.setTimeout(60_000);
   const WAIT = { timeout: 15_000 };
 
