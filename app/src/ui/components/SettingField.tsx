@@ -318,6 +318,8 @@ function Toggle({ value, onChange, id, describedBy }: ControlProps<FieldMeta>) {
   );
 }
 
+const NUMERIC_LABEL = /^[\d.,:\s]+$/;
+
 /** Pressed-button group (enum settings, ROI presets, Get Ready's preview mode). */
 export function SegmentGroup<V extends string>({
   options,
@@ -354,6 +356,7 @@ export function SegmentGroup<V extends string>({
           onClick={() => onSelect(o.value)}
           className={cx(
             'min-h-11 flex-1 rounded-[9px] px-3 font-semibold whitespace-nowrap',
+            NUMERIC_LABEL.test(o.label) && 'font-mono',
             o.value === value ? 'bg-accent text-accent-ink' : 'text-text hover:bg-surface',
           )}
         >
