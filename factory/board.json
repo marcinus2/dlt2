@@ -82,6 +82,32 @@
       "builder": "a93ce8f06b7be6ddb",
       "note": "approved by human",
       "updated": "2026-10-11T21:41:34Z"
+    },
+    {
+      "id": "005-end-session-bests",
+      "title": "Best lap and best 3 laps after End session",
+      "branch": "factory/005-end-session-bests",
+      "stage": "merged",
+      "round": 2,
+      "maxRound": 3,
+      "reworks": 0,
+      "reviews": {
+        "security": "PASS",
+        "ux": "PASS",
+        "ui": "PASS",
+        "code": "PASS"
+      },
+      "rounds": [
+        {
+          "security": "PASS",
+          "ux": "PASS",
+          "ui": "CHANGES",
+          "code": "PASS"
+        }
+      ],
+      "builder": "a6e0befdbd52189a1",
+      "note": "",
+      "updated": "2026-10-11T22:21:41Z"
     }
   ]
 }
