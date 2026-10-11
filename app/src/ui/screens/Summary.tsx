@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
 import { formatLap } from '../../session/laps.ts';
-import { ActionButton } from '../components/ActionBar.tsx';
+import { ActionBar, ActionButton } from '../components/ActionBar.tsx';
 import { TopBar } from '../components/TopBar.tsx';
 import { lapsText } from '../copy.ts';
+import { cx } from '../cx.ts';
 import { useApp } from '../store.tsx';
 
 function Stat({
@@ -19,10 +20,12 @@ function Stat({
   return (
     <section
       aria-label={label}
-      className="flex min-w-0 flex-1 flex-col items-center gap-2 rounded-2xl border border-border bg-surface px-4 py-6"
+      className="flex min-w-0 flex-1 flex-col items-center gap-2 rounded-2xl border border-border bg-surface px-4 py-6 short:py-3"
     >
       <h2 className="text-sm font-bold tracking-[0.2em] text-text-muted uppercase">{label}</h2>
-      <p className={`font-mono text-6xl font-bold ${best ? 'text-best' : 'text-text'}`}>{value}</p>
+      <p className={cx('font-mono text-6xl font-bold short:text-4xl', best ? 'text-best' : 'text-text')}>
+        {value}
+      </p>
       <p className="text-text-muted">{note}</p>
     </section>
   );
@@ -48,7 +51,7 @@ export function Summary() {
             label="Best lap"
             value={best === null ? '--.--' : formatLap(laps[best]?.ms ?? 0)}
             note={best === null ? '' : `Lap ${best + 1}`}
-            best
+            best={best !== null}
           />
           <Stat
             label="Best 3 laps"
@@ -58,14 +61,14 @@ export function Summary() {
           />
         </div>
         <p className="text-text-muted">{lapsText(laps.length)}</p>
-        <div className="flex min-h-24 w-full max-w-[480px]">
-          <ActionButton
-            label="New session"
-            tone="accent"
-            onPress={() => dispatch({ type: 'NAV_NEW_SESSION' })}
-          />
-        </div>
       </main>
+      <ActionBar className="mx-auto w-full max-w-[480px]">
+        <ActionButton
+          label="New session"
+          tone="accent"
+          onPress={() => dispatch({ type: 'NAV_NEW_SESSION' })}
+        />
+      </ActionBar>
     </>
   );
 }
