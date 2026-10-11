@@ -28,6 +28,8 @@ export function useCalibration(opts: {
   durationMs: number;
   k: number;
   onResult: (r: Ratios) => void;
+  /** No usable frames (not on cancel). */
+  onFail?: () => void;
 }) {
   const { live, durationMs, k } = opts;
   const onSample = useApp((s) => s.onSample);
@@ -36,6 +38,8 @@ export function useCalibration(opts: {
   const progress = useRef<HTMLDivElement>(null);
   const onResult = useRef(opts.onResult);
   onResult.current = opts.onResult;
+  const onFail = useRef(opts.onFail);
+  onFail.current = opts.onFail;
 
   useEffect(() => {
     if (!running || !live) {
@@ -53,7 +57,10 @@ export function useCalibration(opts: {
       }
       off();
       setRunning(false);
-      if (!step.result) return setOutcome({ kind: 'failed' });
+      if (!step.result) {
+        onFail.current?.();
+        return setOutcome({ kind: 'failed' });
+      }
       const startRatio = fitRatio('detection.startRatio', step.result.startRatio);
       const endRatio = Math.min(startRatio, fitRatio('detection.endRatio', step.result.endRatio));
       onResult.current({ startRatio, endRatio });

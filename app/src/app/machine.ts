@@ -51,6 +51,8 @@ export type AppEvent =
   | { type: 'TUNE_STOP' }
   /** Get Ready's Calibrate wrote new ratios into the draft: save and apply them. */
   | { type: 'CALIBRATED' }
+  /** Get Ready's Calibrate found no usable frames. */
+  | { type: 'CALIBRATION_FAILED' }
   | { type: 'CONFIRM' }
   | { type: 'CANCEL' };
 
@@ -233,7 +235,15 @@ function getReady(s: AppState, e: AppEvent): Result {
     case 'APP_VISIBLE':
       return s.camera === 'off' ? to({ ...s, camera: 'starting' }, [{ type: 'camera.start' }]) : same(s);
     case 'CALIBRATED':
-      return s.camera === 'live' ? to(s, [{ type: 'settings.commit' }, { type: 'engine.update' }]) : same(s);
+      return s.camera === 'live'
+        ? to(s, [
+            { type: 'settings.commit' },
+            { type: 'engine.update' },
+            { type: 'audio.cue', cue: 'calibrated' },
+          ])
+        : same(s);
+    case 'CALIBRATION_FAILED':
+      return s.camera === 'live' ? to(s, [{ type: 'audio.cue', cue: 'calibrationFailed' }]) : same(s);
     case 'NAV_NEW_SESSION':
       return to(leaveTo(s, 'welcome'), STOP_ALL);
     case 'NAV_CONFIG':

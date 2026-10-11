@@ -175,6 +175,8 @@ describe('speechText', () => {
   it.each([
     ['go', undefined, 'Go'],
     ['paused', undefined, 'Paused'],
+    ['calibrated', undefined, 'Calibrated'],
+    ['calibrationFailed', undefined, 'Calibration failed'],
     ['armed', undefined, ''],
     ['lap', 12340, '12.34'],
     ['best', 12340, 'Best, 12.34'],
@@ -192,6 +194,8 @@ describe('speechText', () => {
   it.each([
     ['go', undefined, 'Go'],
     ['paused', undefined, 'Paused'],
+    ['calibrated', undefined, 'Calibrated'],
+    ['calibrationFailed', undefined, 'Calibration failed'],
     ['armed', undefined, ''],
     ['lap', 12340, '12.3'],
     ['best', 12340, 'Best, 12.3'],

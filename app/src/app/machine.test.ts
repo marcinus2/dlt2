@@ -62,6 +62,7 @@ const ALL_EVENTS: AppEvent[] = [
   { type: 'TUNE_START' },
   { type: 'TUNE_STOP' },
   { type: 'CALIBRATED' },
+  { type: 'CALIBRATION_FAILED' },
   { type: 'CONFIRM' },
   { type: 'CANCEL' },
 ];
@@ -220,13 +221,40 @@ describe('GetReady', () => {
       'NAV_CONFIG',
       'CAMERA_LOST',
       'CALIBRATED',
+      'CALIBRATION_FAILED',
     ]);
   });
 
   it('CALIBRATED with camera live → same state; settings.commit, engine.update', () => {
     const r = reduce(getReadyLive, { type: 'CALIBRATED' });
     expect(r.state).toBe(getReadyLive);
-    expect(r.effects).toEqual([{ type: 'settings.commit' }, { type: 'engine.update' }]);
+    expect(r.effects).toEqual([
+      { type: 'settings.commit' },
+      { type: 'engine.update' },
+      { type: 'audio.cue', cue: 'calibrated' },
+    ]);
+  });
+
+  it('CALIBRATION_FAILED on Get Ready with a live camera → only the calibrationFailed cue', () => {
+    const r = reduce(getReadyLive, { type: 'CALIBRATION_FAILED' });
+    expect(r.state).toBe(getReadyLive);
+    expect(r.effects).toEqual([{ type: 'audio.cue', cue: 'calibrationFailed' }]);
+  });
+
+  it.each([
+    ['getReady starting', starting],
+    ['getReady off (hidden)', run(getReadyLive, { type: 'APP_HIDDEN' }).state],
+    ['getReady error', run(starting, { type: 'CAMERA_ERROR', error: err }).state],
+    ['welcome', initialState],
+    ['mode', modeScreen],
+    ['session', timing],
+    ['paused', pausedWithLaps],
+    ['config', config],
+    ['config tuning', tuningLive],
+  ])('CALIBRATION_FAILED on %s is ignored', (_, s) => {
+    const r = reduce(s, { type: 'CALIBRATION_FAILED' });
+    expect(r.state).toBe(s);
+    expect(r.effects).toEqual([]);
   });
 
   it.each([

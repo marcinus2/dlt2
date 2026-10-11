@@ -97,6 +97,8 @@ export interface AppStore {
   resetDraft(): void;
   /** Get Ready's Calibrate: saves the ratios and applies them to the running engine (no Save step). */
   applyCalibration(values: { startRatio: number; endRatio: number }): void;
+  /** Get Ready's Calibrate found no usable frames: spoken cue. */
+  failCalibration(): void;
   showToast(text: string): void;
   dismissToast(id: number): void;
   setUi(patch: Partial<UiState>): void;
@@ -196,6 +198,7 @@ export function createAppStore(opts: StoreOptions): StoreApi<AppStore> & { resum
         get().setDraftValues({ 'detection.startRatio': startRatio, 'detection.endRatio': endRatio });
         get().dispatch({ type: 'CALIBRATED' });
       },
+      failCalibration: () => get().dispatch({ type: 'CALIBRATION_FAILED' }),
       showToast: (text) => set({ ui: { ...get().ui, toast: { id: ++toastId, text } } }),
       dismissToast: (id) => {
         if (get().ui.toast?.id === id) get().setUi({ toast: null });
