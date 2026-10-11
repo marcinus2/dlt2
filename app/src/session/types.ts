@@ -19,4 +19,4 @@ export interface SessionData {
   timing: Timing;
   phase: 'arming' | 'ready';
 }
-export type Cue = 'armed' | 'go' | 'lap' | 'best' | 'best3' | 'paused';
+export type Cue = 'armed' | 'go' | 'lap' | 'best' | 'best3' | 'paused' | 'calibrated' | 'calibrationFailed';

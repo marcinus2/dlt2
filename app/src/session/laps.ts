@@ -109,6 +109,10 @@ export function speechText(
       return 'Go';
     case 'paused':
       return 'Paused';
+    case 'calibrated':
+      return 'Calibrated';
+    case 'calibrationFailed':
+      return 'Calibration failed';
     case 'lap':
       return lapMs === undefined ? '' : spokenTime(lapMs, precision);
     case 'best':

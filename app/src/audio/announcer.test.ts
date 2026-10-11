@@ -19,6 +19,22 @@ describe('announce', () => {
     expect(announce('paused', undefined, ALL)).toEqual({ tone: 'paused', text: 'Paused' });
   });
 
+  it('calibration cues: tone + text, each gated by its toggle', () => {
+    expect(announce('calibrated', undefined, ALL)).toEqual({ tone: 'calibrated', text: 'Calibrated' });
+    expect(announce('calibrationFailed', undefined, ALL)).toEqual({
+      tone: 'calibrationFailed',
+      text: 'Calibration failed',
+    });
+    expect(announce('calibrated', undefined, { ...ALL, voice: false })).toEqual({
+      tone: 'calibrated',
+      text: '',
+    });
+    expect(announce('calibrationFailed', undefined, { ...ALL, beep: false })).toEqual({
+      tone: null,
+      text: 'Calibration failed',
+    });
+  });
+
   it('beep off → no tone; voice off → no text', () => {
     expect(announce('lap', 12340, { ...ALL, beep: false })).toEqual({ tone: null, text: '12.34' });
     expect(announce('go', undefined, { ...ALL, voice: false })).toEqual({ tone: 'go', text: '' });
