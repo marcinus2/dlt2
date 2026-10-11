@@ -90,7 +90,11 @@ export function Session() {
           aria-label="History"
           className="min-h-0 overflow-y-auto overscroll-contain px-safe pt-2 [grid-area:list] md:border-l md:border-border md:pt-4 landscape:border-l landscape:border-border landscape:pt-4"
         >
-          <LapList laps={session.laps} bestIdx={session.bestIdx} />
+          <LapList
+            laps={session.laps}
+            bestIdx={session.bestIdx}
+            best3={session.mode === 'best3' ? (session.best3?.idx ?? null) : undefined}
+          />
         </section>
         <ActionBar key={screen} className="[grid-area:actions] md:max-w-[480px] md:justify-self-stretch">
           {paused ? (

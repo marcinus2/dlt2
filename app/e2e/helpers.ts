@@ -30,10 +30,18 @@ export async function pass(page: Page, gapMs = 0) {
   await page.waitForTimeout(300);
 }
 
-/** Welcome → Get Ready → START → stand-by. */
-export async function startSession(page: Page) {
-  await page.goto(SIM_URL);
+/** Welcome → Mode → Get Ready (the mode tap waits out the 300 ms tap guard). */
+export async function getReady(page: Page, mode: 'Best lap' | 'Best 3 laps' = 'Best lap') {
   await page.getByRole('button', { name: 'Get ready!' }).click();
+  await expect(page.getByRole('heading', { name: 'Choose mode' })).toBeVisible();
+  await page.waitForTimeout(350);
+  await page.getByRole('button', { name: mode }).click();
+}
+
+/** Welcome → Mode → Get Ready → START → stand-by. */
+export async function startSession(page: Page, mode?: 'Best lap' | 'Best 3 laps') {
+  await page.goto(SIM_URL);
+  await getReady(page, mode);
   await expect(page.getByTestId('camera-health')).toBeVisible();
   await page.getByRole('button', { name: 'Start' }).click();
   await expect(chip(page)).toHaveText('Stand-by');

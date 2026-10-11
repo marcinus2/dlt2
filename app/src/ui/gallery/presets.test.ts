@@ -14,6 +14,9 @@ describe('gallery presets', () => {
 
   it('reach the intended states through the real reducer', () => {
     expect(state('welcome').screen).toBe('welcome');
+    expect(state('mode')).toMatchObject({ screen: 'mode', camera: 'off' });
+    expect(state('best3Timing').session).toMatchObject({ mode: 'best3', best3: { idx: 2, ms: 37190 } });
+    expect(state('best3Pending').session).toMatchObject({ mode: 'best3', best3: null });
     expect(state('getReady').camera).toBe('live');
     expect(state('cameraError-permission').camera).toEqual({
       error: expect.objectContaining({ kind: 'permission' }),

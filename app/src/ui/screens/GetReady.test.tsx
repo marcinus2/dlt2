@@ -8,8 +8,8 @@ import { createSettingsStorage, memoryBackend, SETTINGS_KEY } from '../../settin
 import { noopEffects, renderWithStore, testStore } from '../../test/ui.tsx';
 import { GetReady } from './GetReady.tsx';
 
-const at = (...types: AppEvent['type'][]) =>
-  types.reduce((s, type) => reduce(s, { type } as AppEvent).state, initialState);
+const CHOOSE: AppEvent = { type: 'CHOOSE_MODE', mode: 'bestLap' };
+const at = (...events: AppEvent[]) => events.reduce((s, e) => reduce(s, e).state, initialState);
 
 const pair = { latest: new Uint8Array(4), previous: new Uint8Array(4), width: 2, height: 2, valid: true };
 
@@ -34,7 +34,10 @@ function setup({ live = true, sim = false } = {}) {
   };
   // A real pipeline exposes the analyzer; sim has none.
   if (!sim) fx.diag = { analyzer: { luma: () => pair } } as unknown as NonNullable<Effects['diag']>;
-  const store = testStore({ effects: fx, state: live ? at('GET_READY', 'CAMERA_LIVE') : at('GET_READY') });
+  const store = testStore({
+    effects: fx,
+    state: at({ type: 'GET_READY' }, CHOOSE, ...(live ? [{ type: 'CAMERA_LIVE' } as const] : [])),
+  });
   renderWithStore(<GetReady />, store);
   const emit = (t: number, ratio: number, global = false) =>
     act(() => {

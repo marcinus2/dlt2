@@ -50,6 +50,76 @@ describe('applyPass', () => {
   });
 });
 
+/** Session from a list of lap times (ms), starting at t = 0. */
+function lapsOf(s: SessionData, ...ms: number[]): SessionData {
+  let t = s.timing.kind === 'running' ? s.timing.refT : 0;
+  let acc = s.timing.kind === 'running' ? s : applyPass(s, t).session;
+  for (const m of ms) {
+    t += m;
+    acc = applyPass(acc, t).session;
+  }
+  return acc;
+}
+
+describe('best 3 consecutive (AC3)', () => {
+  it('newSession takes the mode; bestLap by default; no window yet', () => {
+    expect(newSession()).toMatchObject({ mode: 'bestLap', best3: null, runStart: 0 });
+    expect(newSession('best3').mode).toBe('best3');
+  });
+
+  it('tracks the fastest window: 14.02 13.40 11.98 12.87 12.34 → idx 2, 37.19', () => {
+    const s = lapsOf(newSession('best3'), 14020, 13400, 11980, 12870, 12340);
+    expect(s.best3).toEqual({ idx: 2, ms: 37190 });
+  });
+
+  it('no window before 3 laps', () => {
+    expect(lapsOf(newSession(), 10000, 10000).best3).toBeNull();
+  });
+
+  it('the flag is true only on the lap that sets a new best window', () => {
+    let s = applyPass(newSession(), 0).session;
+    const flags: boolean[] = [];
+    let t = 0;
+    for (const ms of [14020, 13400, 11980, 12870, 12340, 15000]) {
+      t += ms;
+      const r = applyPass(s, t);
+      flags.push(r.best3);
+      s = r.session;
+    }
+    // Windows: 39.40 (new), 38.25 (new), 37.19 (new), 40.21 (no).
+    expect(flags).toEqual([false, false, true, true, true, false]);
+    expect(applyPass(newSession(), 0).best3).toBe(false); // go
+  });
+
+  it('ties keep the earlier window', () => {
+    const s = lapsOf(newSession(), 10000, 11000, 12000); // 33.00 at idx 0, ref at 33000
+    const r = applyPass(s, 43000); // 11 + 12 + 10 = 33.00
+    expect(r.best3).toBe(false);
+    expect(r.session.best3).toEqual({ idx: 0, ms: 33000 });
+  });
+
+  it('a window never spans a pause: 2 laps, stop, 1 lap → no best 3', () => {
+    const paused = stop(lapsOf(newSession(), 10000, 10000));
+    expect(paused.runStart).toBe(2);
+    const after = lapsOf(paused, 10000); // go, then one lap
+    expect(after.laps).toHaveLength(3);
+    expect(after.best3).toBeNull();
+    expect(lapsOf(after, 10000, 10000).best3).toEqual({ idx: 2, ms: 30000 });
+  });
+
+  it('stop in standby still moves runStart to the end', () => {
+    const s = stop(stop(lapsOf(newSession(), 10000, 10000, 10000)));
+    expect(s.runStart).toBe(3);
+    expect(s.best3).toEqual({ idx: 0, ms: 30000 }); // kept while paused
+    const standby = { ...s, runStart: 0 };
+    expect(stop(standby).runStart).toBe(3);
+  });
+
+  it('keeps the mode across stop', () => {
+    expect(stop(lapsOf(newSession('best3'), 10000)).mode).toBe('best3');
+  });
+});
+
 describe('stop / continue boundary', () => {
   it('drops the in-progress lap and keeps laps', () => {
     const s = stop(passes(newSession(), 0, 10000));
@@ -113,6 +183,7 @@ describe('speechText', () => {
     ['lap', 125000, '2 minutes 5.00'],
     ['lap', undefined, ''],
     ['best', undefined, ''],
+    ['best3', undefined, ''],
   ] as const)('%s %s → %s', (cue, ms, text) => {
     expect(speechText(cue, ms)).toBe(text);
     expect(speechText(cue, ms, 'hundredths')).toBe(text);
@@ -134,5 +205,12 @@ describe('speechText', () => {
     ['lap', undefined, ''],
   ] as const)('tenths: %s %s → %s', (cue, ms, text) => {
     expect(speechText(cue, ms, 'tenths')).toBe(text);
+  });
+
+  it('best3: lap, "best three", total; precision applies to both (AC4)', () => {
+    expect(speechText('best3', 12340, 'hundredths', 36120)).toBe('12.34, best three, 36.12');
+    expect(speechText('best3', 12340, 'tenths', 36120)).toBe('12.3, best three, 36.1');
+    expect(speechText('best3', 20000, 'hundredths', 60120)).toBe('20.00, best three, 1 minute 0.12');
+    expect(speechText('best3', 12340, 'hundredths')).toBe('12.34'); // no total → plain lap
   });
 });

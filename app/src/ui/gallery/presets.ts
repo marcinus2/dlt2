@@ -15,10 +15,17 @@ export interface Preset {
   draft?: Settings;
 }
 
-const GET_READY: AppEvent[] = [{ type: 'GET_READY' }];
+const GET_READY: AppEvent[] = [{ type: 'GET_READY' }, { type: 'CHOOSE_MODE', mode: 'bestLap' }];
 const LIVE: AppEvent[] = [...GET_READY, { type: 'CAMERA_LIVE' }];
 const ARMING: AppEvent[] = [...LIVE, { type: 'START' }];
 const STANDBY: AppEvent[] = [...ARMING, { type: 'ARMED' }];
+const BEST3_STANDBY: AppEvent[] = [
+  { type: 'GET_READY' },
+  { type: 'CHOOSE_MODE', mode: 'best3' },
+  { type: 'CAMERA_LIVE' },
+  { type: 'START' },
+  { type: 'ARMED' },
+];
 
 /** Passes for the given lap times (s), starting with the reference pass. */
 function laps(...secs: number[]): AppEvent[] {
@@ -72,6 +79,7 @@ export const PRESETS: Preset[] = [
     ui: { toast: { id: 1, text: STORAGE_TOAST } },
   },
 
+  { id: 'mode', title: 'Choose mode', group: 'Get Ready', events: [{ type: 'GET_READY' }] },
   { id: 'cameraStarting', title: 'Camera starting', group: 'Get Ready', events: GET_READY },
   { id: 'getReady', title: 'Preview live', group: 'Get Ready', events: LIVE },
   { id: 'getReadyLowFps', title: 'Low frame rate', group: 'Get Ready', events: LIVE, ui: { lowFps: true } },
@@ -91,6 +99,18 @@ export const PRESETS: Preset[] = [
     title: 'Latest is best',
     group: 'Session',
     events: [...STANDBY, ...laps(14.02, 13.4, 12.87, 11.98)],
+  },
+  {
+    id: 'best3Timing',
+    title: 'Best 3 laps',
+    group: 'Session',
+    events: [...BEST3_STANDBY, ...SOME_LAPS],
+  },
+  {
+    id: 'best3Pending',
+    title: 'Best 3, no window yet',
+    group: 'Session',
+    events: [...BEST3_STANDBY, ...laps(14.02, 13.4)],
   },
   { id: 'longLap', title: 'Lap over a minute', group: 'Session', events: [...STANDBY, ...laps(12.3, 65.34)] },
   {

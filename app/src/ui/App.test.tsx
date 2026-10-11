@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { initialState, reduce } from '../app/machine.ts';
+import { type AppEvent, initialState, reduce } from '../app/machine.ts';
 import { DEFAULTS } from '../settings/schema.ts';
 import { createSettingsStorage, memoryBackend, SETTINGS_KEY } from '../settings/storage.ts';
 import { noopEffects, renderWithStore, testStore } from '../test/ui.tsx';
@@ -18,7 +18,7 @@ describe('App', () => {
     expect(screen.getByTestId('build-label').textContent).toBe(buildLabel);
   });
 
-  it('GET READY → Get Ready → START → Session (taps guarded for 300 ms)', async () => {
+  it('GET READY → Mode → Get Ready → START → Session (taps guarded for 300 ms)', async () => {
     const store = testStore({ effects: noopEffects({ cameraLive: { width: 240, height: 480, fps: 30 } }) });
     renderWithStore(<App />, store);
     const getReady = screen.getByRole('button', { name: 'Get ready!' });
@@ -26,7 +26,13 @@ describe('App', () => {
     expect(store.getState().state.screen).toBe('welcome'); // within the guard window
     await wait(320);
     fireEvent.click(getReady);
-    expect(store.getState().state.screen).toBe('getReady');
+    expect(store.getState().state).toMatchObject({ screen: 'mode', camera: 'off' });
+    expect(screen.getByRole('heading', { name: 'Choose mode' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Best lap' })); // the double tap from GET READY!
+    expect(store.getState().state.screen).toBe('mode');
+    await wait(320);
+    fireEvent.click(screen.getByRole('button', { name: 'Best lap' }));
+    expect(store.getState().state).toMatchObject({ screen: 'getReady', mode: 'bestLap' });
     await wait(320);
     expect(screen.getByTestId('camera-health').textContent).toBe('30 fps · front camera');
     const stats = {
@@ -59,11 +65,18 @@ describe('App', () => {
   });
 });
 
+/** Get Ready with the camera live (Best lap). */
+const live = () =>
+  [{ type: 'GET_READY' }, { type: 'CHOOSE_MODE', mode: 'bestLap' }, { type: 'CAMERA_LIVE' }].reduce(
+    (s, e) => reduce(s, e as AppEvent).state,
+    initialState,
+  );
+
 describe('audio UI (M6)', () => {
   const inSession = (opts: { audioLocked?: boolean; unlock?: () => void } = {}) => {
     const fx = noopEffects();
     if (opts.unlock) fx.audio.unlock = opts.unlock;
-    const state = reduce(reduce(initialState, { type: 'GET_READY' }).state, { type: 'CAMERA_LIVE' }).state;
+    const state = live();
     const store = testStore({
       effects: fx,
       state: reduce(state, { type: 'START' }).state,
@@ -85,8 +98,7 @@ describe('audio UI (M6)', () => {
   it('no banner when beeps and voice are both off', () => {
     const fx = noopEffects();
     fx.settings.save({ ...fx.settings.load(), audio: { ...DEFAULTS.audio, beep: false, voice: false } });
-    const state = reduce(reduce(initialState, { type: 'GET_READY' }).state, { type: 'CAMERA_LIVE' }).state;
-    const store = testStore({ effects: fx, state: reduce(state, { type: 'START' }).state });
+    const store = testStore({ effects: fx, state: reduce(live(), { type: 'START' }).state });
     renderWithStore(<App />, store);
     act(() => store.getState().setUi({ audioLocked: true }));
     expect(screen.queryByRole('button', { name: 'Tap to enable sound' })).toBeNull();
@@ -122,7 +134,8 @@ describe('primaryEvent (Space / Enter)', () => {
     const r = (s = initialState, ...es: Parameters<typeof reduce>[1][]) =>
       es.reduce((a, e) => reduce(a, e).state, s);
     expect(primaryEvent(initialState)).toEqual({ type: 'GET_READY' });
-    const starting = r(initialState, { type: 'GET_READY' });
+    expect(primaryEvent(r(initialState, { type: 'GET_READY' }))).toBeNull(); // Mode: two equal choices
+    const starting = r(initialState, { type: 'GET_READY' }, { type: 'CHOOSE_MODE', mode: 'bestLap' });
     expect(primaryEvent(starting)).toBeNull();
     expect(primaryEvent(r(starting, { type: 'CAMERA_LIVE' }))).toEqual({ type: 'START' });
     expect(primaryEvent(r(starting, { type: 'CAMERA_ERROR', error: { kind: 'busy', message: '' } }))).toEqual(

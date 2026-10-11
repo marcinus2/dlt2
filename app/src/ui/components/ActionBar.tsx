@@ -27,14 +27,17 @@ interface Props {
   /** Flex grow (CONTINUE : END = 2 : 1). */
   grow?: 1 | 2;
   hint?: string;
+  /** id of a caption that describes the button. */
+  describedBy?: string;
 }
 
-export function ActionButton({ label, tone, onPress, grow = 1, hint }: Props) {
+export function ActionButton({ label, tone, onPress, grow = 1, hint, describedBy }: Props) {
   const { ready, guard } = useTapGuard();
   return (
     <m.button
       type="button"
       aria-disabled={!ready || undefined}
+      aria-describedby={describedBy}
       onClick={guard(onPress)}
       {...PRESS}
       className={cx(

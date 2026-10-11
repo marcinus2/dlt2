@@ -1,7 +1,7 @@
 // Flows 1–2 (spec §5.4) in sim mode, plus keyboard and layout-shift checks (plan 2.10).
 import { expect, test } from '@playwright/test';
 import { SETTINGS_KEY } from '../src/settings/storage.ts';
-import { chip, fastSettings, hero, historyRows, pass, SIM_URL, startSession } from './helpers.ts';
+import { chip, fastSettings, getReady, hero, historyRows, pass, SIM_URL, startSession } from './helpers.ts';
 
 test.beforeEach(async ({ page }) => fastSettings(page));
 
@@ -38,6 +38,22 @@ test('flow 1b: latest lap best → green hero with BEST badge', async ({ page })
     page.getByRole('region', { name: 'Latest lap' }).getByText('Best', { exact: true }),
   ).toBeVisible();
   await expect(page.locator('[data-best]')).toHaveCount(0);
+});
+
+test('best 3 laps: Get ready! → Best 3 laps → Start → 4 passes → summary shows the best 3 total', async ({
+  page,
+}) => {
+  await startSession(page, 'Best 3 laps');
+  await pass(page);
+  await pass(page, 400);
+  await pass(page, 400);
+  await expect(page.getByTestId('lap-summary')).toHaveText(/^Laps 2·Best 3 --\.--$/);
+  await pass(page, 400);
+  await expect(page.getByTestId('lap-summary')).toHaveText(/^Laps 3·Best 3 \d+\.\d\d$/);
+  await expect(
+    page.getByRole('region', { name: 'Latest lap' }).getByText('Best 3', { exact: true }),
+  ).toBeVisible();
+  await expect(historyRows(page).and(page.locator('[data-best3]'))).toHaveCount(2);
 });
 
 test('flow 2: STOP / CONTINUE keeps laps and drops the in-progress lap; END → dialog, Cancel keeps it', async ({
@@ -106,6 +122,9 @@ test('full flow by keyboard: Space = primary action, P = pass, Esc closes dialog
   await page.goto(SIM_URL);
   await page.waitForTimeout(350); // tap guard after the first screen
   await page.keyboard.press('Space');
+  await expect(page.getByRole('button', { name: 'Best lap' })).toBeFocused();
+  await page.waitForTimeout(350);
+  await page.keyboard.press('Enter'); // native click on the focused choice
   await expect(page.getByTestId('camera-health')).toBeVisible();
   await page.keyboard.press('Space');
   await expect(chip(page)).toHaveText('Stand-by');
@@ -135,7 +154,7 @@ test('Get Ready: Calibrate saves at once, survives a reload, shows in Configurat
   const startRatio = () =>
     page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? '{}').detection.startRatio, SETTINGS_KEY);
   await page.goto(SIM_URL);
-  await page.getByRole('button', { name: 'Get ready!' }).click();
+  await getReady(page);
   await expect(page.getByTestId('camera-health')).toBeVisible();
   await page.getByRole('button', { name: 'Calibrate' }).click();
   await expect(page.getByText('Calibrating — keep the scene still…')).toBeVisible();

@@ -40,14 +40,16 @@ test('unlock primes speech in the taps; go / lap / best are toned and spoken, ca
 }) => {
   await recordAudio(page);
   await startSession(page);
-  // GET READY and START unlock; then the armed tone (no warm-up in these settings).
-  await expect.poll(() => calls(page)).toEqual(['cancel', 'prime', 'cancel', 'prime', 'tone running']);
+  // GET READY, the mode tap and START unlock; then the armed tone (no warm-up in these settings).
+  await expect
+    .poll(() => calls(page))
+    .toEqual(['cancel', 'prime', 'cancel', 'prime', 'cancel', 'prime', 'tone running']);
 
   await pass(page);
   await pass(page, 900);
   await pass(page, 600);
   await expect.poll(() => said(page)).toHaveLength(3);
-  const log = (await calls(page)).slice(5);
+  const log = (await calls(page)).slice(7);
   expect(log.filter((c) => c.startsWith('tone'))).toEqual(['tone running', 'tone running', 'tone running']);
   const s = await said(page);
   expect(s[0]).toBe('say Go');
@@ -55,6 +57,18 @@ test('unlock primes speech in the taps; go / lap / best are toned and spoken, ca
   expect(s[2]).toMatch(/^say (Best, )?\d+\.\d\d$/);
   // Every utterance is preceded by cancel(), so a lap never queues behind an old one.
   for (const [i, c] of log.entries()) if (c.startsWith('say')) expect(log[i - 1]).toBe('cancel');
+});
+
+test('best 3 laps: the lap closing a new best window says "…, best three, …"', async ({ page }) => {
+  await recordAudio(page);
+  await startSession(page, 'Best 3 laps');
+  await pass(page);
+  for (let i = 0; i < 3; i++) await pass(page, 400);
+  await expect.poll(() => said(page)).toHaveLength(4);
+  const s = await said(page);
+  expect(s[0]).toBe('say Go');
+  expect(s[1]).toMatch(/^say Best, \d+\.\d\d$/);
+  expect(s[3]).toMatch(/^say \d+\.\d\d, best three, \d+\.\d\d$/);
 });
 
 test('toggles: beeps off → no tones; voice off → no speech; announceBest off → plain lap', async ({

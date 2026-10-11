@@ -12,16 +12,26 @@ export interface Announcement {
   text: string;
 }
 
-export function announce(cue: Cue, lapMs: Ms | undefined, s: AudioSettings): Announcement {
-  const phrase = cue === 'best' && !s.announceBest ? 'lap' : cue;
-  return { tone: s.beep ? cue : null, text: s.voice ? speechText(phrase, lapMs, s.voicePrecision) : '' };
+/** `totalMs`: the 3-lap total of a `best3` cue. */
+export function announce(cue: Cue, lapMs: Ms | undefined, s: AudioSettings, totalMs?: Ms): Announcement {
+  const phrase = (cue === 'best' || cue === 'best3') && !s.announceBest ? 'lap' : cue;
+  return {
+    tone: s.beep ? cue : null,
+    text: s.voice ? speechText(phrase, lapMs, s.voicePrecision, totalMs) : '',
+  };
 }
 
 export interface Announcer {
   /** Inside a user gesture only. */
   unlock(): void;
   /** `onSpeechStart` fires when the utterance starts (latency probe, plan 6.6). */
-  cue(cue: Cue, lapMs: Ms | undefined, s: AudioSettings, onSpeechStart?: () => void): Announcement;
+  cue(
+    cue: Cue,
+    lapMs: Ms | undefined,
+    s: AudioSettings,
+    onSpeechStart?: () => void,
+    totalMs?: Ms,
+  ): Announcement;
   onLockChange(cb: (locked: boolean) => void): Unsubscribe;
   onVoiceChange(cb: (available: boolean) => void): Unsubscribe;
   voiceAvailable(): boolean;
@@ -35,8 +45,8 @@ export function createAnnouncer(
   const play = deps.play ?? playTone;
   return {
     unlock: unlock.unlock,
-    cue(cue, lapMs, s, onSpeechStart) {
-      const a = announce(cue, lapMs, s);
+    cue(cue, lapMs, s, onSpeechStart, totalMs) {
+      const a = announce(cue, lapMs, s, totalMs);
       const ctx = unlock.context();
       if (a.tone && ctx) play(ctx, TONES[a.tone]);
       if (a.text) speech.say(a.text, onSpeechStart);
@@ -56,8 +66,8 @@ export function loggedAnnouncer(a: Announcer, log: (msg: string) => void): Annou
       log('audio.unlock');
       a.unlock();
     },
-    cue(cue, lapMs, s, onSpeechStart) {
-      const r = a.cue(cue, lapMs, s, onSpeechStart);
+    cue(cue, lapMs, s, onSpeechStart, totalMs) {
+      const r = a.cue(cue, lapMs, s, onSpeechStart, totalMs);
       const parts = [r.tone && 'tone', r.text && `“${r.text}”`].filter(Boolean).join(' ');
       log(`cue ${cue}${parts ? ` ${parts}` : ' (muted)'}`);
       return r;

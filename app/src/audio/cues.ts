@@ -16,6 +16,7 @@ export const TONES: Record<Cue, Tone> = {
   go: { from: 660, to: 990, ms: 180, gain: 0.2 },
   lap: LAP,
   best: LAP,
+  best3: LAP,
   paused: { from: 990, to: 495, ms: 300, gain: 0.2 },
 };
 

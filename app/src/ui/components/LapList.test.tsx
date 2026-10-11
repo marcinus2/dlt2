@@ -45,6 +45,26 @@ describe('LapList', () => {
     expect(container.textContent).toBe('');
   });
 
+  it('best 3: rows of the window (but the latest) carry data-best3 and sr-only text (AC6)', () => {
+    const s = session(14.02, 13.4, 11.98, 12.87, 12.34); // window = laps 3–5
+    render(<LapList laps={s.laps} bestIdx={s.bestIdx} best3={s.best3?.idx ?? null} />);
+    const marked = rows().filter((r) => r.dataset.best3);
+    expect(marked.map((r) => r.textContent)).toEqual(['#412.87, in best 3', '#311.98Best, in best 3']);
+  });
+
+  it('best 3: an older window is marked in full; no prop → no marks', () => {
+    const s = session(10, 10, 10, 15, 15); // window = laps 1–3
+    const { unmount } = render(<LapList laps={s.laps} bestIdx={s.bestIdx} best3={s.best3?.idx ?? null} />);
+    expect(
+      rows()
+        .filter((r) => r.dataset.best3)
+        .map((r) => r.textContent?.slice(0, 2)),
+    ).toEqual(['#3', '#2', '#1']);
+    unmount();
+    render(<LapList laps={s.laps} bestIdx={s.bestIdx} />);
+    expect(rows().filter((r) => r.dataset.best3)).toEqual([]);
+  });
+
   it('caps the list at the newest 500 rows plus "+N older laps"', () => {
     const s = session(...Array.from({ length: 600 }, (_, i) => 10 + (i % 7)));
     render(<LapList laps={s.laps} bestIdx={s.bestIdx} />);
