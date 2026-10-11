@@ -212,7 +212,7 @@ export function createEffectRunner(fx: Effects, host: RunnerHost) {
       case 'audio.cue': {
         const t = passT;
         const probe = t === null ? undefined : () => host.speechLatency(latency.add(performance.now() - t));
-        fx.audio.cue(e.cue, e.lapMs, host.saved().audio, probe);
+        fx.audio.cue(e.cue, e.lapMs, host.saved().audio, probe, e.totalMs);
         break;
       }
       case 'wakeLock.acquire':

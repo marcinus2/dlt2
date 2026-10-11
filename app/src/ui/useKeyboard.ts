@@ -9,6 +9,8 @@ export function primaryEvent(s: AppState): AppEvent | null {
   switch (s.screen) {
     case 'welcome':
       return { type: 'GET_READY' };
+    case 'mode':
+      return null; // two equal choices: Tab to one, Enter clicks it
     case 'getReady':
       if (s.camera === 'live') return { type: 'START' };
       return typeof s.camera === 'object' ? { type: 'RETRY' } : null;

@@ -23,7 +23,10 @@ function run(s: AppState, ...events: AppEvent[]): { state: AppState; effects: Ef
 }
 const at = (...events: AppEvent[]) => run(initialState, ...events).state;
 
-const getReadyLive = at({ type: 'GET_READY' }, { type: 'CAMERA_LIVE' });
+const CHOOSE_BEST_LAP: AppEvent = { type: 'CHOOSE_MODE', mode: 'bestLap' };
+const CHOOSE_BEST3: AppEvent = { type: 'CHOOSE_MODE', mode: 'best3' };
+const modeScreen = at({ type: 'GET_READY' });
+const getReadyLive = at({ type: 'GET_READY' }, CHOOSE_BEST_LAP, { type: 'CAMERA_LIVE' });
 const arming = run(getReadyLive, { type: 'START' }).state;
 const standby = run(arming, { type: 'ARMED' }).state;
 const timing = run(standby, pass(0)).state;
@@ -43,6 +46,7 @@ const ALL_EVENTS: AppEvent[] = [
   { type: 'SAVE' },
   { type: 'CONFIG_CHANGED', dirty: true, valid: true },
   { type: 'GET_READY' },
+  CHOOSE_BEST3,
   { type: 'CAMERA_LIVE' },
   { type: 'CAMERA_ERROR', error: err },
   { type: 'RETRY' },
@@ -71,14 +75,10 @@ function expectIgnored(s: AppState, allowed: AppEvent['type'][]) {
 }
 
 describe('Welcome', () => {
-  it('GET_READY → GetReady/CameraStarting; unlock, camera.start, wakeLock.acquire', () => {
+  it('GET_READY → Mode, camera off; audio.unlock only (AC1)', () => {
     const r = reduce(initialState, { type: 'GET_READY' });
-    expect(r.state).toMatchObject({ screen: 'getReady', camera: 'starting' });
-    expect(r.effects).toEqual([
-      { type: 'audio.unlock' },
-      { type: 'camera.start' },
-      { type: 'wakeLock.acquire' },
-    ]);
+    expect(r.state).toMatchObject({ screen: 'mode', camera: 'off', mode: 'bestLap' });
+    expect(r.effects).toEqual([{ type: 'audio.unlock' }]);
   });
 
   it('NAV_CONFIG → Configuration (clean), no effects', () => {
@@ -96,8 +96,42 @@ describe('Welcome', () => {
   });
 });
 
+describe('Mode (AC1)', () => {
+  it.each([
+    ['bestLap', CHOOSE_BEST_LAP],
+    ['best3', CHOOSE_BEST3],
+  ] as const)('CHOOSE_MODE %s → GetReady/CameraStarting; unlock, camera.start, wakeLock.acquire', (m, e) => {
+    const r = reduce(modeScreen, e);
+    expect(r.state).toMatchObject({ screen: 'getReady', camera: 'starting', mode: m });
+    expect(r.effects).toEqual([
+      { type: 'audio.unlock' },
+      { type: 'camera.start' },
+      { type: 'wakeLock.acquire' },
+    ]);
+  });
+
+  it('NAV_NEW_SESSION → Welcome; NAV_CONFIG → Configuration; no effects', () => {
+    const a = reduce(modeScreen, { type: 'NAV_NEW_SESSION' });
+    expect(a.state).toEqual(initialState);
+    expect(a.effects).toEqual([]);
+    const b = reduce(modeScreen, { type: 'NAV_CONFIG' });
+    expect(b.state).toMatchObject({ screen: 'config', camera: 'off', configDirty: false });
+    expect(b.effects).toEqual([]);
+  });
+
+  it('ignores every other event (incl. START, PASS, CAMERA_LIVE)', () => {
+    expectIgnored(modeScreen, ['CHOOSE_MODE', 'NAV_NEW_SESSION', 'NAV_CONFIG']);
+  });
+
+  it('CHOOSE_MODE outside the Mode screen is ignored', () => {
+    for (const s of [initialState, getReadyLive, timing, pausedWithLaps, config]) {
+      expect(reduce(s, CHOOSE_BEST3).state).toBe(s);
+    }
+  });
+});
+
 describe('GetReady', () => {
-  const starting = at({ type: 'GET_READY' });
+  const starting = at({ type: 'GET_READY' }, CHOOSE_BEST_LAP);
 
   it('CAMERA_LIVE → Preview; engine.start', () => {
     const r = reduce(starting, { type: 'CAMERA_LIVE' });
@@ -126,8 +160,11 @@ describe('GetReady', () => {
     const r = reduce(getReadyLive, { type: 'START' });
     expect(r.state.screen).toBe('session');
     expect(r.state.session).toEqual({
+      mode: 'bestLap',
       laps: [],
       bestIdx: null,
+      best3: null,
+      runStart: 0,
       timing: { kind: 'standby' },
       phase: 'arming',
     });
@@ -197,6 +234,7 @@ describe('GetReady', () => {
     ['getReady off (hidden)', run(getReadyLive, { type: 'APP_HIDDEN' }).state],
     ['getReady error', run(starting, { type: 'CAMERA_ERROR', error: err }).state],
     ['welcome', initialState],
+    ['mode', modeScreen],
     ['session', timing],
     ['paused', pausedWithLaps],
     ['config', config],
@@ -384,6 +422,66 @@ describe('Paused', () => {
 
   it('ignores illegal events', () => {
     expectIgnored(pausedWithLaps, ['CONTINUE', 'END', 'NAV_NEW_SESSION', 'NAV_CONFIG']);
+  });
+});
+
+describe('Best 3 mode (AC2, AC4)', () => {
+  const best3Timing = run(
+    initialState,
+    { type: 'GET_READY' },
+    CHOOSE_BEST3,
+    { type: 'CAMERA_LIVE' },
+    { type: 'START' },
+    { type: 'ARMED' },
+    pass(0),
+  ).state;
+  /** Lap times 14.02 13.40 11.98 12.87 12.34 → cue effects per lap. */
+  function cues(s: AppState): Effect[][] {
+    const out: Effect[][] = [];
+    let t = 0;
+    let st = s;
+    for (const ms of [14020, 13400, 11980, 12870, 12340]) {
+      t += ms;
+      const r = reduce(st, pass(t));
+      out.push(r.effects);
+      st = r.state;
+    }
+    return out;
+  }
+
+  it('START creates a session in the chosen mode; STOP → CONTINUE keeps it', () => {
+    expect(best3Timing.session?.mode).toBe('best3');
+    expect(timing.session?.mode).toBe('bestLap');
+    const continued = run(best3Timing, pass(10000), { type: 'STOP' }, { type: 'CONTINUE' }).state;
+    expect(continued.mode).toBe('best3');
+    expect(continued.session?.mode).toBe('best3');
+    expect(continued.session?.laps).toHaveLength(1);
+  });
+
+  it('a new best window emits best3 with lapMs and totalMs; other laps keep lap/best', () => {
+    expect(cues(best3Timing)).toEqual([
+      [{ type: 'audio.cue', cue: 'best', lapMs: 14020 }],
+      [{ type: 'audio.cue', cue: 'best', lapMs: 13400 }],
+      [{ type: 'audio.cue', cue: 'best3', lapMs: 11980, totalMs: 39400 }],
+      [{ type: 'audio.cue', cue: 'best3', lapMs: 12870, totalMs: 38250 }],
+      [{ type: 'audio.cue', cue: 'best3', lapMs: 12340, totalMs: 37190 }],
+    ]);
+  });
+
+  it('bestLap mode emits exactly the lap/best cues', () => {
+    expect(cues(timing)).toEqual([
+      [{ type: 'audio.cue', cue: 'best', lapMs: 14020 }],
+      [{ type: 'audio.cue', cue: 'best', lapMs: 13400 }],
+      [{ type: 'audio.cue', cue: 'best', lapMs: 11980 }],
+      [{ type: 'audio.cue', cue: 'lap', lapMs: 12870 }],
+      [{ type: 'audio.cue', cue: 'lap', lapMs: 12340 }],
+    ]);
+  });
+
+  it('leaving to Welcome keeps the mode until the next choice', () => {
+    const left = run(modeScreen, CHOOSE_BEST3, { type: 'NAV_NEW_SESSION' }).state;
+    expect(left).toMatchObject({ screen: 'welcome', mode: 'best3' });
+    expect(run(left, { type: 'GET_READY' }, CHOOSE_BEST_LAP).state.mode).toBe('bestLap');
   });
 });
 

@@ -21,9 +21,10 @@ import {
   STATS_INTERVAL_MS,
   toCameraError,
 } from './effects.ts';
-import { initialState } from './machine.ts';
+import { type AppEvent, initialState } from './machine.ts';
 import { createAppStore, STORAGE_TOAST } from './store.ts';
 
+const BEST_LAP: AppEvent = { type: 'CHOOSE_MODE', mode: 'bestLap' };
 const info: CameraInfo = { width: 240, height: 480, fps: 30, facing: 'user' };
 const stats: EngineStats = { fps: 30, deliveredFps: 30, dropped: 0, msPerFrame: 6, ratio: 0, tSource: 'now' };
 const pass = (startT: number): PassEvent => ({
@@ -94,8 +95,8 @@ function fakeEffects() {
     engine,
     audio: {
       unlock: () => log.push('audio.unlock'),
-      cue: (c, ms, s, onSpeechStart) => {
-        log.push(`cue:${c}${ms ? `:${ms}` : ''}`);
+      cue: (c, ms, s, onSpeechStart, totalMs) => {
+        log.push(`cue:${c}${ms ? `:${ms}` : ''}${totalMs ? `:${totalMs}` : ''}`);
         cueSettings.push(s);
         speechStarts.push(onSpeechStart);
         return { tone: c, text: '' };
@@ -164,6 +165,7 @@ function setup() {
 async function inSession() {
   const t = setup();
   t.dispatch({ type: 'GET_READY' });
+  t.dispatch(BEST_LAP);
   await t.f.resolveCamera();
   t.dispatch({ type: 'START' });
   t.f.emitPhase('armed');
@@ -181,8 +183,10 @@ describe('store + effect runner', () => {
   it('runs gesture-bound effects synchronously inside dispatch', () => {
     const { f, dispatch, state } = setup();
     dispatch({ type: 'GET_READY' });
+    expect(f.log).toEqual(['audio.unlock']); // Mode screen: camera still off
+    dispatch(BEST_LAP);
     // No await: unlock, camera.start and wake lock already happened.
-    expect(f.log).toEqual(['audio.unlock', 'camera.start', 'wakeLock.acquire']);
+    expect(f.log).toEqual(['audio.unlock', 'audio.unlock', 'camera.start', 'wakeLock.acquire']);
     expect(f.configured).toEqual([DEFAULTS.camera]);
     expect(state()).toMatchObject({ screen: 'getReady', camera: 'starting' });
   });
@@ -190,6 +194,7 @@ describe('store + effect runner', () => {
   it('camera start → CAMERA_LIVE → engine.start with the saved detection settings', async () => {
     const { f, store, dispatch, state } = setup();
     dispatch({ type: 'GET_READY' });
+    dispatch(BEST_LAP);
     await f.resolveCamera();
     expect(state().camera).toBe('live');
     expect(f.started).toEqual([DEFAULTS.detection]);
@@ -199,6 +204,7 @@ describe('store + effect runner', () => {
   it('camera start failure → CAMERA_ERROR with the mapped kind', async () => {
     const { f, dispatch, state } = setup();
     dispatch({ type: 'GET_READY' });
+    dispatch(BEST_LAP);
     await f.rejectCamera({ name: 'NotAllowedError', message: 'Permission denied' });
     expect(state().camera).toEqual({ error: { kind: 'permission', message: 'Permission denied' } });
   });
@@ -206,6 +212,7 @@ describe('store + effect runner', () => {
   it('a camera start that finishes after camera.stop is dropped', async () => {
     const { f, dispatch, state } = setup();
     dispatch({ type: 'GET_READY' });
+    dispatch(BEST_LAP);
     dispatch({ type: 'NAV_NEW_SESSION' });
     await f.resolveCamera();
     expect(state()).toEqual(initialState);
@@ -221,6 +228,18 @@ describe('store + effect runner', () => {
     expect(f.log.slice(-3)).toEqual(['cue:armed', 'cue:go', 'cue:best:12340']);
     dispatch({ type: 'STOP' });
     expect(f.log.slice(-2)).toEqual(['engine.stop', 'camera.stop']);
+  });
+
+  it('best 3 mode: the cue carries the lap and the 3-lap total', async () => {
+    const t = setup();
+    t.dispatch({ type: 'GET_READY' });
+    t.dispatch({ type: 'CHOOSE_MODE', mode: 'best3' });
+    await t.f.resolveCamera();
+    t.dispatch({ type: 'START' });
+    t.f.emitPhase('armed');
+    for (const at of [0, 10000, 21000, 33000]) t.f.emitPass(pass(at));
+    expect(t.state().session?.mode).toBe('best3');
+    expect(t.f.log.slice(-2)).toEqual(['cue:lap:11000', 'cue:best3:12000:33000']);
   });
 
   it('a PASS from an old run id is ignored', async () => {
@@ -241,6 +260,7 @@ describe('store + effect runner', () => {
   it('engine.reset starts a new run (passes before START are dropped)', async () => {
     const { f, dispatch, state } = setup();
     dispatch({ type: 'GET_READY' });
+    dispatch(BEST_LAP);
     await f.resolveCamera();
     const getReadyRun = f.passListeners();
     dispatch({ type: 'START' });
@@ -252,6 +272,7 @@ describe('store + effect runner', () => {
   it('passes on Get Ready flash the ROI and leave the state alone (G3)', async () => {
     const { f, store, dispatch, state } = setup();
     dispatch({ type: 'GET_READY' });
+    dispatch(BEST_LAP);
     await f.resolveCamera();
     const before = state();
     f.emitPass(pass(100));
@@ -299,6 +320,7 @@ describe('store + effect runner', () => {
   it('applyCalibration on Get Ready (live) saves, persists and applies the ratios', async () => {
     const { f, store, dispatch, state } = setup();
     dispatch({ type: 'GET_READY' });
+    dispatch(BEST_LAP);
     await f.resolveCamera();
     store.getState().applyCalibration({ startRatio: 0.031, endRatio: 0.015 });
     const { saved, draft } = store.getState();
@@ -322,6 +344,7 @@ describe('store + effect runner', () => {
     check(setup()); // welcome
     const starting = setup();
     starting.dispatch({ type: 'GET_READY' });
+    starting.dispatch(BEST_LAP);
     check(starting);
     const config = setup();
     config.dispatch({ type: 'NAV_CONFIG' });
@@ -334,6 +357,7 @@ describe('store + effect runner', () => {
     const { f, store, dispatch } = setup();
     f.failSaves();
     dispatch({ type: 'GET_READY' });
+    dispatch(BEST_LAP);
     await f.resolveCamera();
     store.getState().applyCalibration({ startRatio: 0.031, endRatio: 0.015 });
     expect(store.getState().ui.toast?.text).toBe(STORAGE_TOAST);
@@ -414,6 +438,7 @@ describe('store + effect runner', () => {
     ];
     await f.setDevices(granted, false);
     dispatch({ type: 'GET_READY' });
+    dispatch(BEST_LAP);
     await f.resolveCamera();
     await Promise.resolve();
     expect(ui().cameras).toEqual(granted);
@@ -425,6 +450,7 @@ describe('store + effect runner', () => {
     const { f, store, dispatch } = setup();
     const ui = () => store.getState().ui;
     dispatch({ type: 'GET_READY' });
+    dispatch(BEST_LAP);
     const exposure = { supported: true, mode: 'manual', value: 100, range: { min: 1, max: 1000 } };
     await f.resolveCamera({
       ...info,

@@ -1,13 +1,15 @@
 import { m } from 'motion/react';
+import type { Ms } from '../../engine/types.ts';
 import { formatLap } from '../../session/laps.ts';
 import type { SessionData } from '../../session/types.ts';
 import { cx } from '../cx.ts';
 import { T_LAP } from '../motion.tsx';
-import { BestBadge } from './BestBadge.tsx';
+import { Best3Badge, BestBadge } from './BestBadge.tsx';
 
-function liveText(n: number, ms: number, best: boolean): string {
+function liveText(n: number, ms: number, best: boolean, best3: Ms | null): string {
   const t = formatLap(ms);
-  return `Lap ${n}, ${t}${ms < 59995 ? ' seconds' : ''}${best ? ', best lap' : ''}`;
+  const b3 = best3 === null ? '' : `, best 3 laps ${formatLap(best3)}`;
+  return `Lap ${n}, ${t}${ms < 59995 ? ' seconds' : ''}${best ? ', best lap' : ''}${b3}`;
 }
 
 /** Latest lap: the largest element on screen (spec §3.3, §4.2). Fixed height: no layout shift. */
@@ -17,11 +19,14 @@ export function LapHero({ session }: { session: SessionData }) {
   const isBest = latest !== undefined && bestIdx === laps.length - 1;
   const best = bestIdx === null ? undefined : laps[bestIdx];
   const running = timing.kind === 'running';
+  const best3 = session.mode === 'best3' ? session.best3 : null;
+  // The latest lap closed the best window.
+  const isBest3 = best3 !== null && best3.idx === laps.length - 3;
 
   return (
     <section aria-label="Latest lap" className="@container relative">
       <p className="sr-only" aria-live="polite">
-        {latest ? liveText(latest.n, latest.ms, isBest) : ''}
+        {latest ? liveText(latest.n, latest.ms, isBest, isBest3 ? best3.ms : null) : ''}
       </p>
       <div
         aria-hidden
@@ -29,6 +34,7 @@ export function LapHero({ session }: { session: SessionData }) {
       >
         {latest ? `Lap ${latest.n}` : 'Lap 1'}
         {isBest && <BestBadge />}
+        {isBest3 && <Best3Badge />}
       </div>
       <div aria-hidden className="relative">
         {isBest && (
@@ -64,7 +70,16 @@ export function LapHero({ session }: { session: SessionData }) {
             <span aria-hidden className="mx-2 text-text-muted">
               ·
             </span>
-            Best <span className="ml-1.5 font-mono text-best">{best ? formatLap(best.ms) : '--.--'}</span>
+            {session.mode === 'best3' ? (
+              <>
+                Best 3{' '}
+                <span className="ml-1.5 font-mono text-best">{best3 ? formatLap(best3.ms) : '--.--'}</span>
+              </>
+            ) : (
+              <>
+                Best <span className="ml-1.5 font-mono text-best">{best ? formatLap(best.ms) : '--.--'}</span>
+              </>
+            )}
           </>
         ) : running ? (
           'Lap 1 running'

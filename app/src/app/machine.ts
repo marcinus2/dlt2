@@ -1,11 +1,11 @@
 // App state machine (spec §3.2 + plan §14 gaps). Pure: reduce(state, event) → { state, effects }.
 import type { CameraError, Ms, PassEvent } from '../engine/types.ts';
 import { applyPass, hasData, newSession, stop } from '../session/laps.ts';
-import type { Cue, SessionData } from '../session/types.ts';
+import type { Cue, SessionData, SessionMode } from '../session/types.ts';
 
 export type { Cue } from '../session/types.ts';
 
-export type Screen = 'welcome' | 'getReady' | 'session' | 'paused' | 'config';
+export type Screen = 'welcome' | 'mode' | 'getReady' | 'session' | 'paused' | 'config';
 export type PauseReason = 'user' | 'hidden' | 'cameraLost';
 export type CameraState = 'off' | 'starting' | 'live' | { error: CameraError };
 export type Dialog =
@@ -16,6 +16,8 @@ export type Dialog =
 
 export interface AppState {
   screen: Screen;
+  /** Chosen on the Mode screen; the next START uses it. Not persisted. */
+  mode: SessionMode;
   camera: CameraState;
   session: SessionData | null;
   pauseReason: PauseReason | null;
@@ -32,6 +34,7 @@ export type AppEvent =
   | { type: 'SAVE' }
   | { type: 'CONFIG_CHANGED'; dirty: boolean; valid: boolean }
   | { type: 'GET_READY' }
+  | { type: 'CHOOSE_MODE'; mode: SessionMode }
   | { type: 'CAMERA_LIVE' }
   | { type: 'CAMERA_ERROR'; error: CameraError }
   | { type: 'RETRY' }
@@ -60,7 +63,7 @@ export type Effect =
   /** Running engine takes the saved detection settings. */
   | { type: 'engine.update' }
   | { type: 'audio.unlock' }
-  | { type: 'audio.cue'; cue: Cue; lapMs?: Ms }
+  | { type: 'audio.cue'; cue: Cue; lapMs?: Ms; totalMs?: Ms }
   | { type: 'wakeLock.acquire' }
   | { type: 'wakeLock.release' }
   | { type: 'settings.commit' }
@@ -73,6 +76,7 @@ export interface Result {
 
 export const initialState: AppState = {
   screen: 'welcome',
+  mode: 'bestLap',
   camera: 'off',
   session: null,
   pauseReason: null,
@@ -160,6 +164,8 @@ function reduceScreen(s: AppState, e: AppEvent): Result {
   switch (s.screen) {
     case 'welcome':
       return welcome(s, e);
+    case 'mode':
+      return mode(s, e);
     case 'getReady':
       return getReady(s, e);
     case 'session':
@@ -174,11 +180,25 @@ function reduceScreen(s: AppState, e: AppEvent): Result {
 function welcome(s: AppState, e: AppEvent): Result {
   switch (e.type) {
     case 'GET_READY':
-      return to({ ...s, screen: 'getReady', camera: 'starting' }, [
+      return to({ ...s, screen: 'mode' }, [{ type: 'audio.unlock' }]);
+    case 'NAV_CONFIG':
+      return to(leaveTo(s, 'config'));
+    default:
+      return same(s);
+  }
+}
+
+/** Mode choice; the tap that picks one starts the camera (gesture-bound). */
+function mode(s: AppState, e: AppEvent): Result {
+  switch (e.type) {
+    case 'CHOOSE_MODE':
+      return to({ ...s, screen: 'getReady', camera: 'starting', mode: e.mode }, [
         { type: 'audio.unlock' },
         { type: 'camera.start' },
         { type: 'wakeLock.acquire' },
       ]);
+    case 'NAV_NEW_SESSION':
+      return to(leaveTo(s, 'welcome'));
     case 'NAV_CONFIG':
       return to(leaveTo(s, 'config'));
     default:
@@ -200,7 +220,7 @@ function getReady(s: AppState, e: AppEvent): Result {
       return isError(s.camera) ? to({ ...s, camera: 'starting' }, [{ type: 'camera.start' }]) : same(s);
     case 'START':
       if (s.camera !== 'live') return same(s); // G9
-      return to({ ...s, screen: 'session', session: newSession(), pauseReason: null }, [
+      return to({ ...s, screen: 'session', session: newSession(s.mode), pauseReason: null }, [
         { type: 'audio.unlock' },
         { type: 'engine.reset' },
       ]);
@@ -231,6 +251,10 @@ function session(s: AppState, e: AppEvent): Result {
       if (data.phase !== 'ready') return same(s); // G4
       const r = applyPass(data, e.pass.startT);
       const lap = r.cue === 'go' ? undefined : r.session.laps.at(-1)?.ms;
+      if (r.best3 && data.mode === 'best3' && lap !== undefined && r.session.best3) {
+        const best3: Effect = { type: 'audio.cue', cue: 'best3', lapMs: lap, totalMs: r.session.best3.ms };
+        return to({ ...s, session: r.session }, [best3]);
+      }
       return to({ ...s, session: r.session }, [cue(r.cue, lap)]);
     }
     case 'STOP':

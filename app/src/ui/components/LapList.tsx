@@ -11,14 +11,18 @@ const ROW_PX = 56;
 /**
  * History = every lap but the latest, newest first (spec §3.3). Renders the newest 500
  * rows + "+N older laps". The best row (when not the latest) is green with a badge.
+ * Best 3 mode passes `best3` (first index of the best window, null before one): every row
+ * gets a gutter and the window's rows an accent bar in it.
  */
 export function LapList({
   laps,
   bestIdx,
+  best3,
   cap = LIST_CAP,
 }: {
   laps: Lap[];
   bestIdx: number | null;
+  best3?: number | null;
   cap?: number;
 }) {
   const history = Math.max(laps.length - 1, 0);
@@ -45,17 +49,27 @@ export function LapList({
       <ol ref={list} aria-label="Lap history" className="flex flex-col">
         {rows.map((lap) => {
           const best = bestIdx === lap.n - 1;
+          const inBest3 = best3 != null && lap.n - 1 >= best3 && lap.n - 1 < best3 + 3;
           return (
             <li
               key={lap.n}
               data-best={best || undefined}
-              className="flex h-14 shrink-0 items-center gap-4 border-b border-border [contain-intrinsic-size:auto_56px] [content-visibility:auto]"
+              data-best3={inBest3 || undefined}
+              // content-visibility clips paint to the row, so the bar sits in a gutter inside it.
+              className={cx(
+                'relative flex h-14 shrink-0 items-center gap-4 border-b border-border [contain-intrinsic-size:auto_56px] [content-visibility:auto]',
+                best3 !== undefined && 'pl-3',
+              )}
             >
+              {inBest3 && (
+                <span aria-hidden className="absolute inset-y-2 left-0 w-1 rounded-full bg-accent" />
+              )}
               <span className="w-16 shrink-0 text-lg font-semibold text-text-muted">#{lap.n}</span>
               <span className={cx('font-mono text-lap-row font-semibold', best ? 'text-best' : 'text-text')}>
                 {formatLap(lap.ms)}
               </span>
               {best && <BestBadge />}
+              {inBest3 && <span className="sr-only">, in best 3</span>}
             </li>
           );
         })}

@@ -220,8 +220,9 @@ GitHub Pages via a CI workflow (`ci.yml`, replacing `deploy.yml`): build `app/` 
 | Screen | Content (top → bottom) | Top menu |
 |---|---|---|
 | **Welcome** | Top menu · big centered **GET READY!** · footer: install link / iOS hint / update toast | `New session` · `Configuration` |
+| **Mode** | Top menu · heading `Choose mode` · two accent pills (≥ 112 px tall, stacked in portrait, side by side in landscape / ≥ 768 px, max-width 480): **Best lap** / **Best 3 laps**, each with a muted caption (`Fastest single lap` / `Fastest 3 laps in a row`). 300 ms tap guard; camera off; `Best lap` focused on mount. The mode is per session, not a setting ([spec](specs/best-three-consecutive.md)) | same |
 | **Get Ready** | Top menu · live camera preview with ROI overlay (the border flashes on a detected pass so you can test with a hand wave) · camera health line (`30 fps`, warnings) · `Preview` toggle **Live / Difference** (diff canvas of the processed region; screen state, Live on every open) · **Calibrate** on the saved `calibration.*` (the result is saved and applied at once, no Save step) · big red **START** | same |
-| **Session** | Top menu · status strip (`ARMING` → `STAND-BY` → `TIMING`, fps warning) · **(b)** large latest lap time + label (`LAP 5`, `BEST` badge if best) · summary `Laps 5 · Best 11.98` · **(c)** history list, newest first, best in fluorescent green · **(d)** big red **STOP** | same (with confirmation, D5) |
+| **Session** | Top menu · status strip (`ARMING` → `STAND-BY` → `TIMING`, fps warning) · **(b)** large latest lap time + label (`LAP 5`, `BEST` badge if best) · summary `Laps 5 · Best 11.98` · **(c)** history list, newest first, best in fluorescent green · **(d)** big red **STOP**. In **Best 3 laps** mode the summary reads `Laps 5 · Best 3 36.12`, the hero adds a `Best 3` badge on the lap that set a new best window, and the window's history rows get an accent left bar (§3.3) | same (with confirmation, D5) |
 | **Session – paused** | Same as Session, status `PAUSED` (+ reason banner when auto-paused), camera and detection stopped; **CONTINUE** (primary) + **END** (secondary, confirms when laps ≥ 1) instead of STOP | same (with confirmation) |
 | **Configuration** | Grouped settings (Camera, Detection, Timing filters, Audio, Performance; *Advanced* collapsed in each) · ROI presets · "Test & calibrate" (D3) · Reset to defaults · Diagnostics (`?debug=1`, D4) | `New session` · **`Save`** |
 
@@ -230,8 +231,11 @@ GitHub Pages via a CI workflow (`ci.yml`, replacing `deploy.yml`): build `app/` 
 ```mermaid
 stateDiagram-v2
   [*] --> Welcome
-  Welcome --> GetReady: GET_READY
+  Welcome --> Mode: GET_READY
   Welcome --> Configuration: NAV_CONFIG
+  Mode --> GetReady: CHOOSE_MODE(bestLap | best3)
+  Mode --> Welcome: NAV_NEW_SESSION
+  Mode --> Configuration: NAV_CONFIG
 
   state GetReady {
     [*] --> CameraStarting
@@ -268,19 +272,21 @@ Dialogs (`leaveSession`, `endSession`, `discardConfig`) are a `dialog` field ove
 
 | State | Event | Guard | Next | Effects |
 |---|---|---|---|---|
-| Welcome | `GET_READY` | — | GetReady/CameraStarting | `audio.unlock`, `camera.start`, `wakeLock.acquire` |
+| Welcome | `GET_READY` | — | Mode (camera off) | `audio.unlock` |
 | Welcome | `NAV_CONFIG` | — | Configuration (clean) | — |
 | Welcome | `NAV_NEW_SESSION` | — | Welcome | none (no-op) |
+| Mode | `CHOOSE_MODE { mode }` | — | GetReady/CameraStarting, `mode` set | `audio.unlock`, `camera.start`, `wakeLock.acquire` (in the tap) |
+| Mode | `NAV_NEW_SESSION` / `NAV_CONFIG` | — | Welcome / Configuration (clean) | — |
 | GetReady | `CAMERA_LIVE` | — | Preview | `engine.start` (meter/flash only; passes ignored by lap logic) |
 | GetReady | `CAMERA_ERROR` | — | CameraError(kind) | — |
 | GetReady | `RETRY` | — | CameraStarting | `camera.start` |
-| GetReady | `START` | camera live | Session/Arming, empty session, timing `standby` | `audio.unlock`, `engine.reset` (warm-up) |
+| GetReady | `START` | camera live | Session/Arming, empty session in the chosen `mode`, timing `standby` | `audio.unlock`, `engine.reset` (warm-up) |
 | GetReady | `APP_HIDDEN` / `APP_VISIBLE` | — | stays; camera stopped / restarted | `engine.stop`+`camera.stop` / `camera.start` |
 | GetReady | `CALIBRATED` | camera live | stays | `settings.commit`, `engine.update` |
 | GetReady | `NAV_NEW_SESSION` / `NAV_CONFIG` | — | Welcome / Configuration | stop all |
 | Session | `ARMED` | — | StandBy | `audio.cue armed` |
 | Session | `PASS` | timing `standby` | Timing, `refT = pass.startT` | `audio.cue go` |
-| Session | `PASS` | timing `running` | Timing, lap appended, `refT = pass.startT` | `audio.cue lap｜best` |
+| Session | `PASS` | timing `running` | Timing, lap appended, `refT = pass.startT` | `audio.cue lap｜best`; in `best3` mode a lap that sets a new best window: `audio.cue best3` (`lapMs`, `totalMs`) |
 | Session | `STOP` | — | Paused(user), timing → `standby` (in-progress lap discarded) | `engine.stop`, `camera.stop` (wake lock kept) |
 | Session | `APP_HIDDEN` | — | Paused(hidden) | as STOP + `audio.cue paused` |
 | Session | `CAMERA_LOST` | — | Paused(cameraLost, error) | as STOP + `audio.cue paused` |
@@ -306,7 +312,7 @@ Dialogs (`leaveSession`, `endSession`, `discardConfig`) are a `dialog` field ove
 ```
 PASS(t):   standby → running(refT = t)              // first pass: no lap, says "Go"
            running → lap = t − refT; refT = t       // every later pass records a lap
-STOP:      running|standby → standby                // in-progress lap dropped, laps kept
+STOP:      running|standby → standby                // in-progress lap dropped, laps kept; runStart = laps.length
 CONTINUE:  standby, detector reset (warm-up)        // next PASS re-starts the reference
 ```
 
@@ -315,9 +321,10 @@ CONTINUE:  standby, detector reset (warm-up)        // next PASS re-starts the r
 - **A lap never spans a pause.** Time spent paused is never counted. Lap N+1 after CONTINUE needs two passes: the first one only sets the reference.
 - **Latest vs history**: the big display = `laps[last]`; the list = `laps[0..last−1]`, newest first. When a lap is recorded, the previous latest lap moves to the top of the list (animated).
 - **Best** = min `ms` over all laps (ties → the earlier lap). If the latest lap is best, the big number turns green with a `BEST` badge. Otherwise the best row in the list is green with a ★ badge. Colour is never the only cue.
+- **Best 3** (`session.mode = 'best3'`, chosen on the Mode screen) = the smallest sum of 3 consecutive laps, `best3 = { idx, ms }` with `idx` = first lap of the window. Each lap checks only the window ending at it (O(1)); a strictly smaller sum wins (ties → the earlier window). **A window never spans a pause**: STOP sets `runStart = laps.length`, and a window needs 3 laps since `runStart` (2 laps, pause, 1 lap → no best 3). Tracked in both modes, shown only in `best3`: summary `Best 3 36.12` (`--.--` before the first window), `Best 3` badge in the hero on the lap that set it (alongside `BEST` when both apply), accent left bar + sr-only "in best 3" on the window's history rows.
 - **Display format**: `ss.cc` below 60 s, `m:ss.cc` above (rounded to 10 ms; the timing resolution is ≈ 33 ms at 30 fps, so 3 decimals would be false precision).
 - **Big display before the first lap**: `--.--` with "Waiting for first pass" (stand-by), then "Lap 1 running" after the first pass. There is no ticking clock.
-- **Spoken format**: "12.34"; ≥ 60 s "1 minute 5.34". With `audio.voicePrecision` = `tenths`: the displayed centiseconds rounded half up to one decimal, "12.3", "1 minute 5.3" (12.35 on screen → "12.4"; 59.95 → "1 minute 0.0"). The screen always shows hundredths.
+- **Spoken format**: "12.34"; ≥ 60 s "1 minute 5.34". With `audio.voicePrecision` = `tenths`: the displayed centiseconds rounded half up to one decimal, "12.3", "1 minute 5.3" (12.35 on screen → "12.4"; 59.95 → "1 minute 0.0"). The screen always shows hundredths. A lap that sets a new best window in `best3` mode says "12.34, best three, 36.12" (both times in the chosen precision; LAP tone); with `announceBest` off it is spoken as a plain lap.
 
 ### 3.4 Edge cases
 
@@ -419,6 +426,21 @@ WELCOME                         GET READY                        SESSION (timing
 └───────────────────────────┘   └───────────────────────────┘    │ │         STOP          │ │
                                                                  │ └───────────────────────┘ │
                                                                  └───────────────────────────┘
+MODE
+┌───────────────────────────┐
+│ ▸New session  ⚙Configurat.│
+├───────────────────────────┤
+│        CHOOSE MODE        │
+│ ┌───────────────────────┐ │
+│ │       BEST LAP        │ │  (accent pill, ≥ 112 px)
+│ └───────────────────────┘ │
+│    Fastest single lap     │
+│ ┌───────────────────────┐ │
+│ │      BEST 3 LAPS      │ │
+│ └───────────────────────┘ │
+│  Fastest 3 laps in a row  │
+└───────────────────────────┘   (side by side in landscape / ≥ 768 px)
+
 PAUSED                          CONFIGURATION
 ┌───────────────────────────┐   ┌───────────────────────────┐
 │ ▸New session  ⚙Configurat.│   │ ▸New session      ✓ Save  │  (Save highlighted when dirty)
@@ -622,12 +644,18 @@ export interface DetectorEngine {
 // session/types.ts + app/machine.ts
 export interface Lap { n: number; ms: Ms; at: Ms }                  // n starts at 1; at = pass.startT
 export type Timing = { kind: 'standby' } | { kind: 'running'; refT: Ms };
-export interface SessionData { laps: Lap[]; bestIdx: number | null; timing: Timing; phase: 'arming' | 'ready' }
+export type SessionMode = 'bestLap' | 'best3';
+export interface SessionData {
+  mode: SessionMode; laps: Lap[]; bestIdx: number | null;
+  best3: { idx: number; ms: Ms } | null; runStart: number;         // best 3-lap window; first lap since the last pause
+  timing: Timing; phase: 'arming' | 'ready';
+}
 
-export type Screen = 'welcome' | 'getReady' | 'session' | 'paused' | 'config';
+export type Screen = 'welcome' | 'mode' | 'getReady' | 'session' | 'paused' | 'config';
 export type PauseReason = 'user' | 'hidden' | 'cameraLost';
 export interface AppState {
   screen: Screen;
+  mode: SessionMode;                                               // chosen on Mode, used by START; not persisted
   camera: 'off' | 'starting' | 'live' | { error: CameraError };
   session: SessionData | null;
   pauseReason: PauseReason | null;
@@ -636,16 +664,16 @@ export interface AppState {
 }
 export type AppEvent =
   | { type: 'NAV_NEW_SESSION' } | { type: 'NAV_CONFIG' } | { type: 'SAVE' } | { type: 'CONFIG_CHANGED'; dirty: boolean }
-  | { type: 'GET_READY' } | { type: 'CAMERA_LIVE' } | { type: 'CAMERA_ERROR'; error: CameraError } | { type: 'RETRY' }
+  | { type: 'GET_READY' } | { type: 'CHOOSE_MODE'; mode: SessionMode } | { type: 'CAMERA_LIVE' } | { type: 'CAMERA_ERROR'; error: CameraError } | { type: 'RETRY' }
   | { type: 'START' } | { type: 'ARMED' } | { type: 'PASS'; pass: PassEvent }
   | { type: 'STOP' } | { type: 'CONTINUE' } | { type: 'END' }
   | { type: 'APP_HIDDEN' } | { type: 'APP_VISIBLE' } | { type: 'CAMERA_LOST'; error: CameraError }
   | { type: 'CONFIRM' } | { type: 'CANCEL' };
-export type Cue = 'armed' | 'go' | 'lap' | 'best' | 'paused';
+export type Cue = 'armed' | 'go' | 'lap' | 'best' | 'best3' | 'paused';
 export type Effect =
   | { type: 'camera.start' } | { type: 'camera.stop' }
   | { type: 'engine.start' } | { type: 'engine.reset' } | { type: 'engine.stop' }
-  | { type: 'audio.unlock' } | { type: 'audio.cue'; cue: Cue; lapMs?: Ms }
+  | { type: 'audio.unlock' } | { type: 'audio.cue'; cue: Cue; lapMs?: Ms; totalMs?: Ms }
   | { type: 'wakeLock.acquire' } | { type: 'wakeLock.release' }
   | { type: 'settings.commit' } | { type: 'settings.revert' };
 

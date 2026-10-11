@@ -7,6 +7,7 @@ import { Dialogs } from './Dialogs.tsx';
 import { MotionProvider, T_REDUCED, T_SCREEN } from './motion.tsx';
 import { Configuration } from './screens/Configuration.tsx';
 import { GetReady } from './screens/GetReady.tsx';
+import { Mode } from './screens/Mode.tsx';
 import { Session } from './screens/Session.tsx';
 import { Welcome } from './screens/Welcome.tsx';
 import { useApp } from './store.tsx';
@@ -14,7 +15,7 @@ import { useKeyboard } from './useKeyboard.ts';
 
 /** Session and Paused share one layout (no transition between them). */
 type View = Exclude<Screen, 'paused'>;
-const ORDER: Record<View, number> = { welcome: 0, getReady: 1, session: 2, config: 3 };
+const ORDER: Record<View, number> = { welcome: 0, mode: 1, getReady: 2, session: 3, config: 4 };
 
 function Transition({ dir, children }: { dir: number; children: ReactNode }) {
   const reduced = useReducedMotion();
@@ -46,6 +47,7 @@ export function App() {
       <CameraHost />
       <Transition key={view} dir={dir}>
         {view === 'welcome' && <Welcome />}
+        {view === 'mode' && <Mode />}
         {view === 'getReady' && <GetReady />}
         {view === 'session' && <Session />}
         {view === 'config' && <Configuration />}

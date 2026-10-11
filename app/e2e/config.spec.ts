@@ -1,6 +1,6 @@
 // Flow 3 (spec §5.4) in sim mode: draft / discard / Save survives reload.
 import { expect, type Page, test } from '@playwright/test';
-import { SIM_URL } from './helpers.ts';
+import { getReady, SIM_URL } from './helpers.ts';
 
 const fps = (page: Page) => page.getByLabel('Frame rate', { exact: true });
 
@@ -129,7 +129,7 @@ test.describe('real engine', () => {
     await page.getByRole('button', { name: /^Timing filters/ }).click();
     await page.getByLabel('Minimum lap time', { exact: true }).fill('5000');
     await page.getByRole('button', { name: 'Save' }).click();
-    await page.getByRole('button', { name: 'Get ready!' }).click();
+    await getReady(page);
     await expect(page.getByTestId('camera-health')).toBeVisible(WAIT);
     await page.getByRole('button', { name: 'Start' }).click();
     // With a 5 s cooldown the clip's 4.5 / 3.0 s laps can't happen: the first lap is ≥ 7.5 s.

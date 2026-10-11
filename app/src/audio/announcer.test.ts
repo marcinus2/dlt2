@@ -40,6 +40,20 @@ describe('announce', () => {
     expect(announce('best', 12340, { ...TENTHS, voice: false })).toEqual({ tone: 'best', text: '' });
   });
 
+  it('best3: lap and total, LAP tone; precision and announceBest honoured (AC4)', () => {
+    expect(announce('best3', 12340, ALL, 36120)).toEqual({ tone: 'best3', text: '12.34, best three, 36.12' });
+    expect(announce('best3', 12340, TENTHS, 36120)).toEqual({
+      tone: 'best3',
+      text: '12.3, best three, 36.1',
+    });
+    expect(announce('best3', 12340, { ...ALL, announceBest: false }, 36120)).toEqual({
+      tone: 'best3',
+      text: '12.34',
+    });
+    expect(announce('best3', 12340, { ...ALL, voice: false }, 36120)).toEqual({ tone: 'best3', text: '' });
+    expect(TONES.best3).toBe(TONES.lap);
+  });
+
   it('defaults have everything on, hundredths', () => {
     expect(DEFAULTS.audio).toEqual(ALL);
   });
@@ -98,6 +112,15 @@ describe('createAnnouncer', () => {
     a.cue('lap', 12340, { ...ALL, voice: false });
     expect(play).toHaveBeenCalledOnce();
     expect(said).toEqual(['12.34']);
+  });
+
+  it('passes the best3 total through to speech', () => {
+    const { speech, said } = fakeSpeech();
+    const play = vi.fn();
+    const a = createAnnouncer({ speech, unlock: unlocked, play });
+    a.cue('best3', 12340, ALL, undefined, 36120);
+    expect(play).toHaveBeenCalledWith(ctx, TONES.lap);
+    expect(said).toEqual(['12.34, best three, 36.12']);
   });
 
   it('says the tenths phrase', () => {

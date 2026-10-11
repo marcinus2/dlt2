@@ -1,7 +1,7 @@
 // Flows 1–2 (spec §5.4) on the real pipeline (plan 5.5): Chromium's fake camera plays the synthetic
 // clip (e2e/tools/make-y4m.ts) through CameraSource → FrameAnalyzer → DetectorEngine, default settings.
 import { expect, type Page, test } from '@playwright/test';
-import { chip, hero, historyRows } from './helpers.ts';
+import { chip, hero, historyRows, getReady as openGetReady } from './helpers.ts';
 import { LAPS_MS } from './tools/make-y4m.ts';
 
 const TOL_S = 0.1; // headless frame delivery jitters by a frame or two
@@ -32,7 +32,7 @@ async function tracks(page: Page): Promise<string[] | undefined> {
 /** Welcome → Get Ready on the real camera: health line, a pass flashes the ROI border (5.2). */
 async function getReady(page: Page) {
   await page.goto('./');
-  await page.getByRole('button', { name: 'Get ready!' }).click();
+  await openGetReady(page);
   await expect(page.getByTestId('camera-health')).toHaveText(/^\d+ fps · front camera$/, PASS_WAIT);
   await expect(page.getByText('SIMULATED')).toHaveCount(0);
   await expect(page.getByTestId('roi-flash')).toBeAttached(PASS_WAIT);
