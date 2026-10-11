@@ -68,7 +68,7 @@
       "id": "004-best-three-consecutive",
       "title": "Best 3 consecutive laps mode",
       "branch": "factory/004-best-three-consecutive",
-      "stage": "needs-human",
+      "stage": "merged",
       "round": 1,
       "maxRound": 3,
       "reworks": 0,
@@ -80,8 +80,8 @@
       },
       "rounds": [],
       "builder": "a93ce8f06b7be6ddb",
-      "note": "~938-line diff and camera/wake-lock/audio-unlock moved to the Mode tap; needs a real-phone check",
-      "updated": "2026-10-11T21:31:21Z"
+      "note": "approved by human",
+      "updated": "2026-10-11T21:41:34Z"
     }
   ]
 }
