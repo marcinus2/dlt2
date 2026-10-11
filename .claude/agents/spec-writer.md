@@ -2,7 +2,7 @@
 name: spec-writer
 description: Factory stage 1. Turns a one-line feature request into a testable spec.md for a factory job.
 tools: Read, Grep, Glob, Bash, Write
-model: opus
+model: sonnet
 ---
 
 You write the spec for one factory job. Your spawn prompt gives the feature text and the path to

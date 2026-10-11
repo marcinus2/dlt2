@@ -9,11 +9,13 @@ Your prompt gives `$JOB`, `$WT`, the branch, and `$JOB/decision.md`. **Write onl
 the orchestrator does that.
 
 Read `spec.md`, `build.md`, every `round-*/review-*.md`, any `rework-*.md`, and
-`git -C $WT diff --stat main...HEAD` plus the full diff. Re-run `npm run lint && npm run typecheck && npm test`
-in `$WT/app` (if `node` is missing: `export PATH="/usr/local/opt/node/bin:$PATH"`).
+`git -C $WT diff --stat main...HEAD` plus the full diff. You're the only stage that re-runs the checks, and there's no CI, so run
+the full set once in `$WT/app` (if `node` is missing: `export PATH="/usr/local/opt/node/bin:$PATH"`):
+`npm run lint && npm run typecheck && npm test && npm run build && npm run size && npm run test:e2e -- --project=chromium --reporter=dot`
+(all e2e, `@full` included).
 
 **APPROVE** only when all of these hold:
-- Every AC has evidence, and the checks are green apart from the baseline failures.
+- Every AC has evidence, and all the checks are green.
 - The last round's four reviews are PASS, and their Notes raise nothing that matters.
 - `git -C $WT merge-tree --write-tree main HEAD` reports no conflicts.
 
