@@ -92,6 +92,13 @@ test('flow 2: STOP / CONTINUE keeps laps and drops the in-progress lap; END → 
 
   await page.getByRole('button', { name: 'End' }).click();
   await page.getByRole('button', { name: 'End session' }).click();
+  await expect(page.getByRole('heading', { name: 'Session complete' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Best lap' })).toContainText(/\d\.\d\d/);
+  await expect(page.getByRole('region', { name: 'Best 3 laps' })).toContainText('--.--');
+  await page.keyboard.press('Space'); // no global action on Summary
+  await expect(page.getByRole('heading', { name: 'Session complete' })).toBeVisible();
+  await page.waitForTimeout(350);
+  await page.getByRole('button', { name: 'New session' }).last().click();
   await expect(page.getByRole('button', { name: 'Get ready!' })).toBeVisible();
 });
 

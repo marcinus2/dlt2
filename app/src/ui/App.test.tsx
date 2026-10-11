@@ -148,6 +148,14 @@ describe('primaryEvent (Space / Enter)', () => {
     expect(primaryEvent(r(session, { type: 'STOP' }))).toEqual({ type: 'CONTINUE' });
     expect(primaryEvent(r(session, { type: 'STOP' }, { type: 'NAV_CONFIG' }))).toBeNull(); // dialog
     expect(primaryEvent(r(initialState, { type: 'NAV_CONFIG' }))).toBeNull();
+    const p = (startT: number) => ({
+      type: 'PASS' as const,
+      pass: { t: startT + 1, startT, endT: startT + 1, peakT: startT, peakRatio: 0.1 },
+    });
+    const lapped = r(session, { type: 'ARMED' }, p(0), p(1000));
+    const ended = r(lapped, { type: 'STOP' }, { type: 'END' }, { type: 'CONFIRM' });
+    expect(ended.screen).toBe('summary');
+    expect(primaryEvent(ended)).toBeNull();
   });
 });
 

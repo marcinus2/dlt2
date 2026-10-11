@@ -5,7 +5,7 @@ import type { Cue, SessionData, SessionMode } from '../session/types.ts';
 
 export type { Cue } from '../session/types.ts';
 
-export type Screen = 'welcome' | 'mode' | 'getReady' | 'session' | 'paused' | 'config';
+export type Screen = 'welcome' | 'mode' | 'getReady' | 'session' | 'paused' | 'config' | 'summary';
 export type PauseReason = 'user' | 'hidden' | 'cameraLost';
 export type CameraState = 'off' | 'starting' | 'live' | { error: CameraError };
 export type Dialog =
@@ -119,7 +119,9 @@ function confirm(s: AppState): Result {
     case 'leaveSession':
       return to(leaveTo(s, s.dialog.to), STOP_ALL);
     case 'endSession':
-      return to(leaveTo(s, 'welcome'), [{ type: 'wakeLock.release' }]);
+      return to({ ...leaveTo(s, 'welcome'), screen: 'summary', session: s.session }, [
+        { type: 'wakeLock.release' },
+      ]);
     case 'discardConfig':
       return to(leaveTo(s, 'welcome'), [{ type: 'settings.revert' }, ...stopTuning(s)]);
     default:
@@ -174,6 +176,8 @@ function reduceScreen(s: AppState, e: AppEvent): Result {
       return paused(s, e);
     case 'config':
       return config(s, e);
+    case 'summary':
+      return summary(s, e);
   }
 }
 
@@ -307,6 +311,18 @@ function paused(s: AppState, e: AppEvent): Result {
       return leaveSession(s, 'config');
     default:
       return same(s); // incl. APP_HIDDEN/APP_VISIBLE (G5) and stale camera events
+  }
+}
+
+/** Result of an ended session; the camera is already off. Leaving drops the session. */
+function summary(s: AppState, e: AppEvent): Result {
+  switch (e.type) {
+    case 'NAV_NEW_SESSION':
+      return to(leaveTo(s, 'welcome'));
+    case 'NAV_CONFIG':
+      return to(leaveTo(s, 'config'));
+    default:
+      return same(s);
   }
 }
 

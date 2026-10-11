@@ -389,10 +389,26 @@ describe('Paused', () => {
     expect(r.effects).toEqual([{ type: 'wakeLock.release' }]);
   });
 
-  it('CONFIRM (endSession) → Welcome, session null; wakeLock.release', () => {
+  it('CONFIRM (endSession) → summary, session kept, camera off; wakeLock.release', () => {
     const r = run(pausedWithLaps, { type: 'END' }, { type: 'CONFIRM' });
-    expect(r.state).toEqual(initialState);
+    expect(r.state).toMatchObject({ screen: 'summary', camera: 'off', dialog: null });
+    expect(r.state.session).toBe(pausedWithLaps.session);
     expect(r.effects).toEqual([{ type: 'wakeLock.release' }]);
+  });
+
+  describe('summary', () => {
+    const summary = run(pausedWithLaps, { type: 'END' }, { type: 'CONFIRM' }).state;
+    it('NAV_NEW_SESSION → Welcome, NAV_CONFIG → Configuration; session null, no effects', () => {
+      const a = reduce(summary, { type: 'NAV_NEW_SESSION' });
+      expect(a.state).toMatchObject({ screen: 'welcome', session: null });
+      expect(a.effects).toEqual([]);
+      const b = reduce(summary, { type: 'NAV_CONFIG' });
+      expect(b.state).toMatchObject({ screen: 'config', session: null });
+      expect(b.effects).toEqual([]);
+    });
+    it('ignores every other event (START / PASS / STOP / CONTINUE …)', () => {
+      expectIgnored(summary, ['NAV_NEW_SESSION', 'NAV_CONFIG']);
+    });
   });
 
   it('NAV_* with data → dialog leaveSession; without data → target with stop all', () => {

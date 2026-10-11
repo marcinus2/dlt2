@@ -224,6 +224,7 @@ GitHub Pages via a CI workflow (`ci.yml`, replacing `deploy.yml`): build `app/` 
 | **Get Ready** | Top menu · live camera preview with ROI overlay (the border flashes on a detected pass so you can test with a hand wave) · camera health line (`30 fps`, warnings) · `Preview` toggle **Live / Difference** (diff canvas of the processed region; screen state, Live on every open) · **Calibrate** on the saved `calibration.*` (the result is saved and applied at once, no Save step) · big red **START** | same |
 | **Session** | Top menu · status strip (`ARMING` → `STAND-BY` → `TIMING`, fps warning) · **(b)** large latest lap time + label (`LAP 5`, `BEST` badge if best) · summary `Laps 5 · Best 11.98` · **(c)** history list, newest first, best in fluorescent green · **(d)** big red **STOP**. In **Best 3 laps** mode the summary reads `Laps 5 · Best 3 36.12`, the hero adds a `Best 3` badge on the lap that set a new best window, and the window's history rows get an accent left bar (§3.3) | same (with confirmation, D5) |
 | **Session – paused** | Same as Session, status `PAUSED` (+ reason banner when auto-paused), camera and detection stopped; **CONTINUE** (primary) + **END** (secondary, confirms when laps ≥ 1) instead of STOP | same (with confirmation) |
+| **Summary** | Top menu · heading `Session complete` · two stat cards `Best lap` (time, `Lap 3`) and `Best 3 laps` (time, `Laps 3–5`, or `--.--` + `Needs 3 laps in a row`) · `{n} laps` · accent **New session** pill. Shown after a confirmed End session; not persisted ([spec](specs/end-session-bests.md)) | `New session` · `Configuration` |
 | **Configuration** | Grouped settings (Camera, Detection, Timing filters, Audio, Performance; *Advanced* collapsed in each) · ROI presets · "Test & calibrate" (D3) · Reset to defaults · Diagnostics (`?debug=1`, D4) | `New session` · **`Save`** |
 
 ### 3.2 State machine
@@ -256,7 +257,10 @@ stateDiagram-v2
   }
   Session --> Paused: STOP | APP_HIDDEN | CAMERA_LOST
   Paused --> Session: CONTINUE (camera restarts → Arming)
-  Paused --> Welcome: END [no laps or confirmed]
+  Paused --> Welcome: END [no laps]
+  Paused --> Summary: END [confirmed]
+  Summary --> Welcome: NAV_NEW_SESSION
+  Summary --> Configuration: NAV_CONFIG
   Session --> Welcome: NAV_NEW_SESSION [no data or confirmed]
   Session --> Configuration: NAV_CONFIG [no data or confirmed]
   Paused --> Welcome: NAV_NEW_SESSION [no data or confirmed]
@@ -298,7 +302,8 @@ Dialogs (`leaveSession`, `endSession`, `discardConfig`) are a `dialog` field ove
 | Paused | `CAMERA_ERROR` (after CONTINUE) | — | Paused + error banner | — |
 | Paused | `END` | laps ≥ 1 | dialog `endSession` | — |
 | Paused | `END` | laps = 0 | Welcome, session = null | `wakeLock.release` |
-| Paused | `CONFIRM` (endSession) | — | Welcome, session = null | `wakeLock.release` |
+| Paused | `CONFIRM` (endSession) | — | Summary (session kept, camera off) | `wakeLock.release` |
+| Summary | `NAV_NEW_SESSION` / `NAV_CONFIG` | — | Welcome / Configuration, session = null | — |
 | Configuration | `CONFIG_CHANGED` | — | dirty = draft ≠ saved | — |
 | Configuration | `SAVE` | draft valid | Welcome | `settings.commit` |
 | Configuration | `NAV_NEW_SESSION` | clean / dirty | Welcome / dialog `discardConfig` | — |

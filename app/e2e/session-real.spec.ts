@@ -85,7 +85,7 @@ test('flow 2 (real): STOP releases the camera, CONTINUE drops the in-progress la
   const dialog = page.getByRole('dialog', { name: 'End session?' });
   await expect(dialog).toContainText('3 laps will be discarded.');
   await dialog.getByRole('button', { name: 'End session' }).click();
-  await expect(page.getByRole('button', { name: 'Get ready!' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Session complete' })).toBeVisible();
 });
 
 test('Get Ready (real): Difference shows the diff canvas; back to Live, START still works', {
