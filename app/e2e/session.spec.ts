@@ -1,6 +1,7 @@
 // Flows 1–2 (spec §5.4) in sim mode, plus keyboard and layout-shift checks (plan 2.10).
 import { expect, test } from '@playwright/test';
 import { SETTINGS_KEY } from '../src/settings/storage.ts';
+import { TAP_GUARD_MS } from '../src/ui/useTapGuard.ts';
 import { chip, fastSettings, getReady, hero, historyRows, pass, SIM_URL, startSession } from './helpers.ts';
 
 test.beforeEach(async ({ page }) => fastSettings(page));
@@ -90,6 +91,7 @@ test('flow 2: STOP / CONTINUE keeps laps and drops the in-progress lap; END → 
   await expect(chip(page)).toHaveText('Paused');
   await expect(page.getByTestId('lap-summary')).toContainText('Laps 3');
 
+  await page.waitForTimeout(TAP_GUARD_MS); // END's tap guard counts from its first tap, before Cancel
   await page.getByRole('button', { name: 'End' }).click();
   await page.getByRole('button', { name: 'End session' }).click();
   await expect(page.getByRole('heading', { name: 'Session complete' })).toBeVisible();
