@@ -15,14 +15,16 @@ spawn prompt contains paths, never conversation history.
 
 ```
 feature → spec-writer → builder ─┬─ security-reviewer ─┐
-             (opus)     (opus)   ├─ ux-reviewer       ─┤  WAIT FOR ALL 4
-                          ▲      ├─ ui-reviewer       ─┤
-                          │      └─ code-reviewer     ─┘
+           (sonnet)   (sonnet)   ├─ ux-reviewer       ─┤  WAIT FOR ALL 4
+                          ▲      ├─ ui-reviewer       ─┤  (round 2+: rerun.sh picks who runs,
+                          │      └─ code-reviewer     ─┘   the rest carry their PASS)
                           │                 │
                           └── any CHANGES ──┤ (builder resumed max MAX_FIX_ROUNDS times)
                                             ▼ all PASS
-                                         approver (opus) ── APPROVE → merge to main
-                                                        └─ ESCALATE → needs-human ◄── /factory approve
+                                         approver (opus) ── APPROVE → merge to main ─┐
+                                                        └─ ESCALATE → needs-human ◄──┼── /factory approve
+                                                                                     ▼
+                                                     followups.md → backlog.md › Proposed (human sorts)
 ```
 
 - `MAX_FIX_ROUNDS = 2` — builder resumes per cycle before the job goes to needs-human.
@@ -51,13 +53,14 @@ Rewrite the whole file on every transition (Read, then Write). One object per jo
   "stage": "review", "round": 2, "maxRound": 3, "reworks": 0,
   "reviews": { "security": "CHANGES", "ux": "PASS", "ui": "pending", "code": "PASS" },
   "rounds": [ { "security": "CHANGES", "ux": "PASS", "ui": "PASS", "code": "CHANGES" } ],
-  "builder": "builder-003-rate-limiting", "note": "", "updated": "2026-10-10T20:00:00Z"
+  "reviewedHead": "a1b2c3d", "builder": "builder-003-rate-limiting", "note": "", "updated": "2026-10-10T20:00:00Z"
 } ] }
 ```
 
 - `stage`: `spec` → `build` → `review` → `approve` → `merged` | `needs-human`.
 - `reviews` is the current round (`pending` until the file lands); `rounds` holds the verdicts of
-  earlier rounds, oldest first. `note` says why a job needs a human. `updated` comes from `date -u +%FT%TZ`.
+  earlier rounds, oldest first. `reviewedHead` is the branch head the current round reviews. `note`
+  says why a job needs a human. `updated` comes from `date -u +%FT%TZ`.
 - `builder` is whatever SendMessage needs to reach the builder (its name, or its agent ID if
   the Agent tool returns one).
 
@@ -86,11 +89,21 @@ Rewrite the whole file on every transition (Read, then Write). One object per jo
 ### Review round
 
 1. round += 1. Move the previous `reviews` into `rounds` (if round > 1). Set every review to
-   `pending`, `stage: review`. Create `$JOB/round-<round>/`.
-2. Spawn all 4 reviewers **in one message, in the background**. Each gets: `$JOB`, `$WT`, the branch,
+   `pending`, `stage: review`. Create `$JOB/round-<round>/`. Keep the old `reviewedHead` aside as
+   `$PREV`, then set `reviewedHead` to `git -C $WT rev-parse --short HEAD`.
+2. **Pick reviewers.** If `$PREV` is empty (round 1, or the first round after a rework): all 4. Otherwise run
+   `bash $ROOT/.claude/skills/factory/rerun.sh $JOB $WT <round-1> $PREV`. It prints one line per reviewer:
+   - `run <key> — …` → spawn it.
+   - `carry <key> — <why>` → don't spawn it. Write `$JOB/round-<round>/review-<key>.md` yourself:
+     first line `VERDICT: PASS (carried)`, then "Carried from round <round-1>: <why>. Fixes reviewed:
+     `$PREV..<reviewedHead>`." Set its chip to `PASS` right away.
+
+   The code reviewer always runs, and so does every reviewer that asked for changes. The approver
+   still re-runs every check, so a carried PASS never skips the final gate.
+3. Spawn the picked reviewers **in one message, in the background**. Each gets: `$JOB`, `$WT`, the branch,
    the round number, its output file `$JOB/round-<round>/review-<key>.md`, and the line "Writing that
    output file (first line `VERDICT: PASS` or `VERDICT: CHANGES`) is required; it is the only file you write."
-3. As each reviewer finishes, read the first line of its file (`VERDICT: PASS` / `VERDICT: CHANGES`)
+   As each reviewer finishes, read the first line of its file (`VERDICT: PASS` / `VERDICT: CHANGES`)
    and update that chip on the board right away, so the dashboard fills in live.
 4. **WAIT FOR ALL.** The round is done only when all 4 files exist in the round folder. Never message the
    builder mid-round. If a reviewer ended without writing its file, spawn it again.
@@ -106,11 +119,20 @@ If the builder can't be reached (new session, agent gone), spawn a fresh `builde
 
 ### Approve
 
-`stage: approve`. Spawn `approver` (foreground) with: `$JOB`, `$WT`, branch, `$JOB/decision.md`, and the
-line "Writing that output file (first line `APPROVE` or `ESCALATE`) is required; it is the only file you write."
+`stage: approve`. Spawn `approver` (foreground) with: `$JOB`, `$WT`, branch, `$JOB/decision.md`,
+`$JOB/followups.md`, and the line "Writing both files (decision.md's first line `APPROVE` or `ESCALATE`)
+is required; they are the only files you write."
 Read the first line of decision.md:
 - `APPROVE` → **Merge**.
 - `ESCALATE` → **needs-human**, note = the approver's one-line reason.
+
+### Follow-ups
+
+Run this on **Merge** success and on **needs-human** when `$JOB/followups.md` exists, before committing the
+factory records.
+Copy every `- ` line from `$JOB/followups.md` to the end of the `## Proposed` section of
+`factory/backlog.md`, as `- [ ] <text> (from <id>)`. Skip a line whose text is already there. Never move
+items into the main list; the human sorts Proposed. Tell the user how many were added.
 
 ### Merge
 
@@ -118,7 +140,7 @@ Read the first line of decision.md:
 git -C $ROOT merge --no-ff factory/<id> -m "Merge factory/<id>: <title>"
 ```
 - Conflict → `git -C $ROOT merge --abort`, then **needs-human** with note "merge conflict: `/factory rework <id> merge main`".
-- Success → `git -C $ROOT worktree remove factory/.worktrees/<id>`, then `stage: merged`. **Keep the branch**:
+- Success → `git -C $ROOT worktree remove factory/.worktrees/<id>`, then `stage: merged` and **Follow-ups**. **Keep the branch**:
   never delete it without the user's OK. **Don't push.** A push to `main` deploys to GitHub Pages,
   so tell the user it's ready to push.
 - Commit the factory records on main:
@@ -126,13 +148,13 @@ git -C $ROOT merge --no-ff factory/<id> -m "Merge factory/<id>: <title>"
 
 ### needs-human
 
-`stage: needs-human`, `note` = reason. Commit the factory records as above (`factory: <id> needs human`).
+`stage: needs-human`, `note` = reason. Run **Follow-ups** if the approver wrote followups.md. Commit the factory records as above (`factory: <id> needs human`).
 Tell the user what's wrong and which command moves the job on: `/factory approve <id>` or
 `/factory rework <id> <note>`.
 
 ### `/factory next`
 
-Take the first `- [ ]` line in `factory/backlog.md`. Change it to `- [x] … → <job-id>` as soon as the
+Take the first `- [ ]` line in `factory/backlog.md` above `## Proposed`. Change it to `- [x] … → <job-id>` as soon as the
 id exists (so it's never picked twice), then run it as `/factory <that text>`. If no unchecked line
 is left, say the backlog is empty.
 
@@ -144,9 +166,9 @@ Only for `stage: needs-human`. Set `note: "approved by human"` and run **Merge**
 
 For any job that isn't `merged`. reworks += 1. Write the note verbatim to `$JOB/rework-<reworks>.md`
 (you write this one, as the human's messenger). Recreate the worktree if it's gone (`git worktree add
-factory/.worktrees/<id> factory/<id>` + the node_modules symlink). Set `maxRound = round + 1 + MAX_FIX_ROUNDS`
-and `stage: build`. Resume (or respawn) `builder-<id>` pointing at `$JOB/rework-<reworks>.md`, then
-continue from step 6 of the new-job flow.
+factory/.worktrees/<id> factory/<id>` + the node_modules symlink). Set `maxRound = round + 1 + MAX_FIX_ROUNDS`,
+`reviewedHead: ""` and `stage: build`. Resume (or respawn) `builder-<id>` pointing at `$JOB/rework-<reworks>.md`, then
+continue from step 6 of the new-job flow. The empty `reviewedHead` makes the next round run all 4 reviewers.
 
 ## Reporting
 
