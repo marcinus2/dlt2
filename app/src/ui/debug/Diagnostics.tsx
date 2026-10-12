@@ -22,6 +22,7 @@ const SOUND_CHECK: { cue: Cue; label: string }[] = [
   { cue: 'lap', label: 'Lap' },
   { cue: 'best', label: 'Best' },
   { cue: 'paused', label: 'Paused' },
+  { cue: 'idleWarning', label: 'Idle warning' },
 ];
 
 /** Play each cue with the draft audio toggles (plan 6.2). */

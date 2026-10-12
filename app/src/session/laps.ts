@@ -109,6 +109,8 @@ export function speechText(
       return 'Go';
     case 'paused':
       return 'Paused';
+    case 'idleWarning':
+      return 'No laps. Pausing in 15 seconds.';
     case 'calibrated':
       return 'Calibrated';
     case 'calibrationFailed':

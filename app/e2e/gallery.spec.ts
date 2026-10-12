@@ -46,7 +46,6 @@ const KNOWN_OVERFLOW: Record<ViewportName, string[]> = {
     ...CAMERA_ERRORS,
     'summary',
     // A banner pushes the lap hero out of the session header.
-    'sessionLowFps',
     'audioLocked',
     'wakeLock',
     'pausedHidden',

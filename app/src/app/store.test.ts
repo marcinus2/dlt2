@@ -15,6 +15,7 @@ import { DEFAULTS, setSetting } from '../settings/schema.ts';
 import { createSettingsStorage, memoryBackend } from '../settings/storage.ts';
 import {
   type Effects,
+  IDLE_GRACE_MS,
   latencyWindow,
   lowFpsTracker,
   SAMPLE_LAP_MS,
@@ -570,5 +571,78 @@ describe('lowFpsTracker', () => {
     expect(t.update(15, 2000)).toBe(true);
     expect(t.update(25, 2100)).toBe(false);
     expect(t.update(15, 2200)).toBe(false);
+  });
+});
+
+describe('idle timers (AC3)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const IDLE_MS = DEFAULTS.session.idleSec * 1000;
+  const cues = (f: ReturnType<typeof fakeEffects>) => f.log.filter((l) => l.startsWith('cue:'));
+
+  async function inReadySession(idleAutoPause = true) {
+    const f = fakeEffects();
+    f.effects.settings.save({ ...DEFAULTS, session: { ...DEFAULTS.session, idleAutoPause } });
+    const store = createAppStore({ effects: f.effects });
+    const dispatch = store.getState().dispatch;
+    dispatch({ type: 'GET_READY' });
+    dispatch(BEST_LAP);
+    await f.resolveCamera();
+    dispatch({ type: 'START' });
+    f.emitPhase('armed');
+    return { f, store, state: () => store.getState().state };
+  }
+
+  it('warns after idleSec, pauses after +15 s', async () => {
+    const { f, state } = await inReadySession();
+    vi.advanceTimersByTime(IDLE_MS - 1);
+    expect(cues(f)).toEqual(['cue:armed']);
+    vi.advanceTimersByTime(1);
+    expect(cues(f)).toEqual(['cue:armed', 'cue:idleWarning']);
+    expect(state().screen).toBe('session');
+    vi.advanceTimersByTime(IDLE_GRACE_MS);
+    expect(state()).toMatchObject({ screen: 'paused', pauseReason: 'idle' });
+    expect(cues(f).at(-1)).toBe('cue:paused');
+    expect(f.log).toContain('camera.stop');
+    vi.advanceTimersByTime(IDLE_MS * 2);
+    expect(cues(f)).toHaveLength(3); // nothing re-armed
+  });
+
+  it('a pass restarts the clock, also during the grace', async () => {
+    const { f, state } = await inReadySession();
+    vi.advanceTimersByTime(IDLE_MS - 1000);
+    f.emitPass(pass(1000));
+    vi.advanceTimersByTime(IDLE_MS - 1);
+    expect(cues(f).filter((c) => c === 'cue:idleWarning')).toHaveLength(0);
+    vi.advanceTimersByTime(1);
+    expect(cues(f).filter((c) => c === 'cue:idleWarning')).toHaveLength(1);
+    vi.advanceTimersByTime(IDLE_GRACE_MS - 1000);
+    f.emitPass(pass(2000)); // during the grace: no pause, the clock starts over
+    vi.advanceTimersByTime(IDLE_GRACE_MS + 1000);
+    expect(state().screen).toBe('session');
+    vi.advanceTimersByTime(IDLE_MS);
+    expect(state().screen).toBe('paused');
+  });
+
+  it('STOP clears the timers', async () => {
+    const { f, store } = await inReadySession();
+    store.getState().dispatch({ type: 'STOP' });
+    const n = cues(f).length;
+    vi.advanceTimersByTime(IDLE_MS * 2);
+    expect(cues(f)).toHaveLength(n);
+    expect(store.getState().state).toMatchObject({ screen: 'paused', pauseReason: 'user' });
+  });
+
+  it('idleAutoPause off schedules nothing', async () => {
+    const { f, state } = await inReadySession(false);
+    vi.advanceTimersByTime(IDLE_MS * 10);
+    expect(cues(f)).toEqual(['cue:armed']);
+    expect(state().screen).toBe('session');
+    expect(vi.getTimerCount()).toBe(1); // only the stats interval
   });
 });

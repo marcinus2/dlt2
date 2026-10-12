@@ -201,3 +201,24 @@ describe('equalSettings / isDefault', () => {
     expect(fieldError(field('camera.width'), Number.NaN)).toBe('Enter a number');
   });
 });
+
+describe('session settings (AC5)', () => {
+  it('old settings without the group load with defaults', () => {
+    expect(sanitize({ version: 2, audio: DEFAULTS.audio }).session).toEqual({
+      idleAutoPause: true,
+      idleSec: 120,
+    });
+  });
+
+  it('idleSec is 30–900 whole seconds; bad values fall back', () => {
+    const f = field('session.idleSec');
+    expect(f).toMatchObject({ min: 30, max: 900, step: 30, default: 120 });
+    for (const bad of [0, 29, 901, 1.5, '60', null]) expect(fieldError(f, bad)).not.toBeNull();
+    expect(fieldError(f, 30)).toBeNull();
+    expect(sanitize({ session: { idleSec: 0, idleAutoPause: 'no' } }).session).toEqual(DEFAULTS.session);
+    expect(sanitize({ session: { idleSec: 300, idleAutoPause: false } }).session).toEqual({
+      idleAutoPause: false,
+      idleSec: 300,
+    });
+  });
+});

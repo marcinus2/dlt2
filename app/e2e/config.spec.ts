@@ -138,3 +138,18 @@ test.describe('real engine', { tag: '@full' }, () => {
     expect(lap).toBeGreaterThanOrEqual(7.4);
   });
 });
+
+test('Session group: idle auto-pause fields are saved', async ({ page }) => {
+  await page.goto(SIM_URL);
+  await page.getByRole('button', { name: 'Configuration' }).click();
+  await page.getByRole('button', { name: /^Session/ }).click();
+  const idle = page.getByLabel('Idle time', { exact: true });
+  await expect(idle).toHaveValue('120');
+  await expect(page.getByLabel('Pause when idle', { exact: true })).toBeVisible();
+  await idle.fill('300');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.reload();
+  await page.getByRole('button', { name: 'Configuration' }).click();
+  await page.getByRole('button', { name: /^Session/ }).click();
+  await expect(page.getByLabel('Idle time', { exact: true })).toHaveValue('300');
+});

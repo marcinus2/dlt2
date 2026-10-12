@@ -2,13 +2,14 @@
 // Defaults are the current PoC values; detection defaults are frozen in M5 (plan 5.3).
 import type { Roi, Settings } from '../engine/types.ts';
 
-export type Group = 'camera' | 'detection' | 'timing' | 'audio' | 'performance' | 'calibration';
+export type Group = 'camera' | 'detection' | 'timing' | 'audio' | 'session' | 'performance' | 'calibration';
 
 export const GROUPS: readonly { id: Group; title: string }[] = [
   { id: 'camera', title: 'Camera' },
   { id: 'detection', title: 'Detection' },
   { id: 'timing', title: 'Timing filters' },
   { id: 'audio', title: 'Audio' },
+  { id: 'session', title: 'Session' },
   { id: 'performance', title: 'Performance' },
   { id: 'calibration', title: 'Test & calibrate' },
 ];
@@ -353,6 +354,28 @@ export const SCHEMA: readonly FieldMeta[] = [
     default: true,
     help: 'Says “Best” before a new best lap.',
   },
+  // Session
+  {
+    key: 'session.idleAutoPause',
+    type: 'bool',
+    label: 'Pause when idle',
+    group: 'session',
+    default: true,
+    help: 'Pauses the session when no laps come in.',
+  },
+  {
+    key: 'session.idleSec',
+    type: 'number',
+    label: 'Idle time',
+    group: 'session',
+    default: 120,
+    min: 30,
+    max: 900,
+    step: 30,
+    unit: 's',
+    int: true,
+    help: 'Warns, then pauses the session after this long without a pass, to save battery.',
+  },
   // Performance
   {
     key: 'detection.processingMaxSize',
@@ -438,7 +461,7 @@ export function setSetting(s: Settings, key: SettingKey, value: unknown): Settin
 }
 
 function buildDefaults(): Settings {
-  const s = { version: 2, camera: {}, detection: {}, calibration: {}, audio: {} } as Settings;
+  const s = { version: 2, camera: {}, detection: {}, calibration: {}, audio: {}, session: {} } as Settings;
   return SCHEMA.reduce(
     (acc, f) => setSetting(acc, f.key, f.type === 'roi' ? { ...f.default } : f.default),
     s,

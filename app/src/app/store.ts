@@ -179,7 +179,7 @@ export function createAppStore(opts: StoreOptions): StoreApi<AppStore> & { resum
       debug: opts.debug ?? false,
       dispatch(e) {
         const prev = get().state;
-        const { state, effects } = reduce(prev, e);
+        const { state, effects } = reduce(prev, e, get().saved.session.idleAutoPause);
         if (state !== prev) set({ state });
         else if (get().debug && effects.length === 0)
           console.debug(`[machine] ${prev.screen}: ignored ${e.type}`);

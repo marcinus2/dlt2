@@ -62,6 +62,7 @@ export const CAMERA_EXPLAINER =
 export function pauseBanner(reason: PauseReason | null, error: CameraError | null): ErrorCopy | null {
   if (reason === 'hidden')
     return { title: 'Paused — app was in background', body: 'Tap CONTINUE to resume.' };
+  if (reason === 'idle') return { title: 'Paused — no activity', body: 'Tap CONTINUE to resume.' };
   if (reason === 'cameraLost') {
     const c = error ? cameraErrorCopy(error) : null;
     return {
