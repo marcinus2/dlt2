@@ -17,3 +17,5 @@
 [x] spoken precision setting: option labels 12.34 / 12.3 show in Inter, numbers should use JetBrains Mono (font-mono) like other times. only numeric option labels, not every segmented control.
 
 [x] spoken feedback for Get Ready Calibrate: a short "Calibrated" / "Calibration failed" cue, so a pilot standing away from the phone knows the result. — [spec](specs/calibration-voice-cue.md)
+
+[ ] Fit every screen at 360×640, 390×844 and 844×390 without scrolling, and empty `KNOWN_OVERFLOW` in `app/e2e/gallery.spec.ts`: Get Ready and Summary on small phones; Welcome, Summary and the session banners in landscape; the camera-error screens at all sizes. Configuration may keep scrolling.

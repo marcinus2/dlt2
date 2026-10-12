@@ -41,6 +41,11 @@ For each AC: the unit test (Vitest), component test (Testing Library), or e2e (P
 that proves it.
 ```
 
+If the feature adds or changes anything on screen, one AC says: "<state> (gallery preset `<id>`) fits
+without scrolling at 360×640, 390×844 and 844×390 (`e2e/gallery.spec.ts` fit check)". Name an existing
+preset from `app/src/ui/gallery/presets.ts`, or say a new one is needed. Landscape counts: the session
+screens are used with the phone on its side.
+
 Keep it short: an AC list of 3–8 items. Choose the simplest design that fits the existing
 architecture (machine → store → UI; pure engine). If the request is ambiguous, pick the reasonable
 reading and say so in one line under Goal. Don't ask questions.

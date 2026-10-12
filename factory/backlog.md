@@ -12,3 +12,4 @@ Items come from [docs/final/backlog.md](../docs/final/backlog.md). One line each
 - [x] Make calibration easier to reach, e.g. from the Get ready preview. → 003-get-ready-calibration
 - [x] Configuration: numeric segmented options (Spoken precision `12.34` / `12.3`) use JetBrains Mono like other numbers; text options stay in Inter.
 - [x] Spoken feedback for Get Ready Calibrate: a short "Calibrated" / "Calibration failed" cue, so a pilot standing away from the phone knows the result. → 006-calibration-voice-cue
+- [ ] Fit every screen at 360×640, 390×844 and 844×390 without scrolling, and empty `KNOWN_OVERFLOW` in `app/e2e/gallery.spec.ts`: Get Ready and Summary on small phones; Welcome, Summary and the session banners in landscape; the camera-error screens at all sizes. Configuration may keep scrolling.
