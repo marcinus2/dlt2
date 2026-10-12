@@ -24,6 +24,7 @@ Check:
 Judge by what the user sees and hears, not by which folders changed: a field in `settings/schema.ts`,
 a state in `app/machine.ts` or a phrase in `session/laps.ts` changes the experience without touching
 `ui/`. Start from the "Visible changes" line in `build.md`, then check the diff for any it missed.
+The screenshots in `$JOB/screens/` show what the pilot sees at three phone sizes.
 
 Output: write your review to your output file with the Write tool. The orchestrator reads only that
 file, never your reply, so a verdict that isn't in the file doesn't count. Its first line is exactly

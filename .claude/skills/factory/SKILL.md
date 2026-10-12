@@ -76,7 +76,12 @@ Rewrite the whole file on every transition (Read, then Write). One object per jo
    ```
 5. **Build.** `stage: build`. Spawn `builder` (foreground) **named `builder-<id>`** with: `$JOB`, `$WT`,
    branch name. Store the name or ID in `builder`.
-6. Read the first line of `$JOB/build.md`. `STATUS: BLOCKED` → go to **needs-human** with the reason. Otherwise **Review round**.
+6. **Check build.md.** Run `bash $ROOT/.claude/skills/factory/check-build.sh $JOB $WT`. It prints:
+   - `BLOCKED` → **needs-human** with the reason from build.md's first line.
+   - `FAIL: …` lines → SendMessage the builder: "build.md check failed:" plus those lines verbatim,
+     then "Fix them and reply." Run the check again. This isn't a review round. Still failing after
+     2 attempts → **needs-human**, note "build.md check failing".
+   - `READY` → **Review round**.
 
 ### Review round
 

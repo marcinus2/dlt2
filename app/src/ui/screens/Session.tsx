@@ -88,6 +88,7 @@ export function Session() {
           // biome-ignore lint/a11y/noNoninteractiveTabindex: a scroll container must be focusable for keyboard users (axe scrollable-region-focusable)
           tabIndex={0}
           aria-label="History"
+          data-scroll // meant to scroll (e2e fit check)
           className="min-h-0 overflow-y-auto overscroll-contain px-safe pt-2 [grid-area:list] md:border-l md:border-border md:pt-4 landscape:border-l landscape:border-border landscape:pt-4"
         >
           <LapList

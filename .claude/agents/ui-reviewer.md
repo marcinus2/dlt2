@@ -15,6 +15,8 @@ Check:
 - Dark only, neon accents. Red (`danger`) only for critical actions; `best` green only for best-lap moments.
 - Typography: Inter for UI, JetBrains Mono for times and numbers. Sizes and weights match the existing screens.
 - Layout works in portrait and landscape at phone sizes, and the main numbers are readable from a distance.
+  Judge this from the screenshots in `$JOB/screens/` (`small-`, `tall-`, `landscape-<preset>.png`; Read
+  shows images), not by estimating heights from the code. A visible change with no screenshot is a finding.
 - Motion uses `motion` the way existing components do, and respects reduced motion.
 - New components reuse `ui/components/` and `cx.ts` instead of duplicating them.
 
