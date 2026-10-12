@@ -361,7 +361,7 @@ export const SCHEMA: readonly FieldMeta[] = [
     label: 'Pause when idle',
     group: 'session',
     default: true,
-    help: 'Warns, then pauses the session after the idle time below, to save battery.',
+    help: 'Pauses the session when no laps come in.',
   },
   {
     key: 'session.idleSec',
