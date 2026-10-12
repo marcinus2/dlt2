@@ -4,7 +4,9 @@ import { expect, type Page, test } from '@playwright/test';
 import { chip, hero, historyRows, getReady as openGetReady } from './helpers.ts';
 import { LAPS_MS } from './tools/make-y4m.ts';
 
-const TOL_S = 0.1; // headless frame delivery jitters by a frame or two
+// A busy runner delivers fake-camera frames late (seen: +150 ms). Frame accuracy is unit-tested in
+// engine/pipeline.test.ts; here it only has to tell the 3.0 s lap from the 4.5 s ones.
+const TOL_S = 0.25;
 const PASS_WAIT = { timeout: 15_000 }; // warm-up + up to one 4.5 s lap, with slack
 // Past warm-up. Stand-by can last only until the clip's next pass, shorter than expect's poll interval.
 const ARMED = /^(Stand-by|Timing)$/;
