@@ -4,8 +4,12 @@ import { expect, type Page, test } from '@playwright/test';
 import { chip, hero, historyRows, getReady as openGetReady } from './helpers.ts';
 import { LAPS_MS } from './tools/make-y4m.ts';
 
-const TOL_S = 0.1; // headless frame delivery jitters by a frame or two
+// A busy runner delivers fake-camera frames late (seen: +150 ms). Frame accuracy is unit-tested in
+// engine/pipeline.test.ts; here it only has to tell the 3.0 s lap from the 4.5 s ones.
+const TOL_S = 0.25;
 const PASS_WAIT = { timeout: 15_000 }; // warm-up + up to one 4.5 s lap, with slack
+// Past warm-up. Stand-by can last only until the clip's next pass, shorter than expect's poll interval.
+const ARMED = /^(Stand-by|Timing)$/;
 
 test.setTimeout(60_000);
 
@@ -47,7 +51,7 @@ test('flow 1 (real): GET READY → START → laps match the clip, best highlight
 }) => {
   await getReady(page);
   await page.getByRole('button', { name: 'Start' }).click();
-  await expect(chip(page)).toHaveText('Stand-by', PASS_WAIT); // after warm-up
+  await expect(chip(page)).toHaveText(ARMED, PASS_WAIT);
   await expect(chip(page)).toHaveText('Timing', PASS_WAIT);
   await expect(summary(page)).toContainText('Laps 3', { timeout: 20_000 });
 
@@ -74,9 +78,9 @@ test('flow 2 (real): STOP releases the camera, CONTINUE drops the in-progress la
 
   await page.waitForTimeout(1500); // paused time is never counted
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(chip(page)).toHaveText('Stand-by', PASS_WAIT);
-  await expect(chip(page)).toHaveText('Timing', PASS_WAIT); // first pass only sets the reference
-  await expect(summary(page)).toContainText('Laps 2');
+  await expect(chip(page)).toHaveText(ARMED, PASS_WAIT);
+  await expect(chip(page)).toHaveText('Timing', PASS_WAIT);
+  await expect(summary(page)).toContainText('Laps 2'); // first pass only sets the reference
   await expect(summary(page)).toContainText('Laps 3', PASS_WAIT);
   expectClipLap(seconds(await hero(page).textContent())); // not a lap + the paused gap
 
@@ -102,5 +106,5 @@ test('Get Ready (real): Difference shows the diff canvas; back to Live, START st
   await expect(diff).toHaveCount(0);
   await expect(page.getByTestId('roi')).toBeVisible();
   await page.getByRole('button', { name: 'Start' }).click();
-  await expect(chip(page)).toHaveText('Stand-by', PASS_WAIT);
+  await expect(chip(page)).toHaveText(ARMED, PASS_WAIT);
 });

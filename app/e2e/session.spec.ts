@@ -1,6 +1,7 @@
 // Flows 1–2 (spec §5.4) in sim mode, plus keyboard and layout-shift checks (plan 2.10).
 import { expect, test } from '@playwright/test';
 import { SETTINGS_KEY } from '../src/settings/storage.ts';
+import { TAP_GUARD_MS } from '../src/ui/useTapGuard.ts';
 import { chip, fastSettings, getReady, hero, historyRows, pass, SIM_URL, startSession } from './helpers.ts';
 
 test.beforeEach(async ({ page }) => fastSettings(page));
@@ -90,6 +91,7 @@ test('flow 2: STOP / CONTINUE keeps laps and drops the in-progress lap; END → 
   await expect(chip(page)).toHaveText('Paused');
   await expect(page.getByTestId('lap-summary')).toContainText('Laps 3');
 
+  await page.waitForTimeout(TAP_GUARD_MS); // END's tap guard counts from its first tap, before Cancel
   await page.getByRole('button', { name: 'End' }).click();
   await page.getByRole('button', { name: 'End session' }).click();
   await expect(page.getByRole('heading', { name: 'Session complete' })).toBeVisible();
@@ -127,7 +129,8 @@ test('no layout shift on lap update', async ({ page }) => {
 
 test('full flow by keyboard: Space = primary action, P = pass, Esc closes dialogs', async ({ page }) => {
   await page.goto(SIM_URL);
-  await page.waitForTimeout(350); // tap guard after the first screen
+  // The keyboard guard counts from mount, which can trail goto; the button's guard ends at the same time.
+  await expect(page.getByRole('button', { name: 'Get ready!' })).not.toHaveAttribute('aria-disabled');
   await page.keyboard.press('Space');
   await expect(page.getByRole('button', { name: 'Best lap' })).toBeFocused();
   await page.waitForTimeout(350);
