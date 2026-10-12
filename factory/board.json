@@ -127,6 +127,33 @@
       "builder": "a2ca41b25d08704cc",
       "note": "",
       "updated": "2026-10-11T22:38:58Z"
+    },
+    {
+      "id": "007-idle-auto-pause",
+      "title": "Idle warning and auto-pause",
+      "branch": "factory/007-idle-auto-pause",
+      "stage": "needs-human",
+      "round": 2,
+      "maxRound": 3,
+      "reworks": 0,
+      "reviews": {
+        "security": "PASS",
+        "ux": "PASS",
+        "ui": "PASS",
+        "code": "PASS"
+      },
+      "rounds": [
+        {
+          "security": "PASS",
+          "ux": "PASS",
+          "ui": "CHANGES",
+          "code": "PASS"
+        }
+      ],
+      "reviewedHead": "93553c0",
+      "builder": "builder-007-idle-auto-pause",
+      "note": "phone check \u2014 a timer now stops the camera and plays a loud tone plus voice with no tap, and landscape banner/hero sizing changed for every session state",
+      "updated": "2026-10-12T16:52:33Z"
     }
   ]
 }
