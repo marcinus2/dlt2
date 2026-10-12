@@ -129,7 +129,8 @@ test('no layout shift on lap update', async ({ page }) => {
 
 test('full flow by keyboard: Space = primary action, P = pass, Esc closes dialogs', async ({ page }) => {
   await page.goto(SIM_URL);
-  await page.waitForTimeout(350); // tap guard after the first screen
+  // The keyboard guard counts from mount, which can trail goto; the button's guard ends at the same time.
+  await expect(page.getByRole('button', { name: 'Get ready!' })).not.toHaveAttribute('aria-disabled');
   await page.keyboard.press('Space');
   await expect(page.getByRole('button', { name: 'Best lap' })).toBeFocused();
   await page.waitForTimeout(350);
