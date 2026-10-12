@@ -36,6 +36,7 @@ describe('schema', () => {
       },
       calibration: { durationMs: 3000, k: 5 },
       audio: { beep: true, voice: true, announceBest: true, voicePrecision: 'hundredths' },
+      session: { idleAutoPause: true, idleSec: 120 },
     });
   });
 

@@ -73,6 +73,8 @@ export const SAMPLE_LAP_MS = 12340;
 
 export { toCameraError };
 
+/** Time between the idle warning and the auto-pause. */
+export const IDLE_GRACE_MS = 15000;
 export const STATS_INTERVAL_MS = 500; // ≤ 4 Hz store updates
 export const LOW_FPS = 20;
 export const LOW_FPS_HOLD_MS = 2000;
@@ -111,6 +113,7 @@ export function createEffectRunner(fx: Effects, host: RunnerHost) {
   let engineRun = 0;
   let engineSubs: Unsubscribe[] = [];
   let statsTimer: ReturnType<typeof setInterval> | null = null;
+  let idleTimer: ReturnType<typeof setTimeout> | null = null;
   const lowFps = lowFpsTracker();
   const latency = latencyWindow();
   /** MOTION_END frame time of the pass being dispatched; its cue starts the latency probe. */
@@ -177,6 +180,25 @@ export function createEffectRunner(fx: Effects, host: RunnerHost) {
     );
   }
 
+  function idleClear() {
+    if (idleTimer !== null) clearTimeout(idleTimer);
+    idleTimer = null;
+  }
+
+  /** Warn after `idleSec` without a pass, pause IDLE_GRACE_MS later. */
+  function idleWatch() {
+    idleClear();
+    const { idleAutoPause, idleSec } = host.saved().session;
+    if (!idleAutoPause) return;
+    idleTimer = setTimeout(() => {
+      host.dispatch({ type: 'IDLE_WARN' });
+      idleTimer = setTimeout(() => {
+        idleTimer = null;
+        host.dispatch({ type: 'IDLE_TIMEOUT' });
+      }, IDLE_GRACE_MS);
+    }, idleSec * 1000);
+  }
+
   function run(e: Effect) {
     switch (e.type) {
       case 'camera.start':
@@ -215,6 +237,12 @@ export function createEffectRunner(fx: Effects, host: RunnerHost) {
         fx.audio.cue(e.cue, e.lapMs, host.saved().audio, probe, e.totalMs);
         break;
       }
+      case 'idle.watch':
+        idleWatch();
+        break;
+      case 'idle.clear':
+        idleClear();
+        break;
       case 'wakeLock.acquire':
         fx.wakeLock.acquire();
         break;

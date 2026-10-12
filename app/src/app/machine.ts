@@ -6,7 +6,7 @@ import type { Cue, SessionData, SessionMode } from '../session/types.ts';
 export type { Cue } from '../session/types.ts';
 
 export type Screen = 'welcome' | 'mode' | 'getReady' | 'session' | 'paused' | 'config' | 'summary';
-export type PauseReason = 'user' | 'hidden' | 'cameraLost';
+export type PauseReason = 'user' | 'hidden' | 'cameraLost' | 'idle';
 export type CameraState = 'off' | 'starting' | 'live' | { error: CameraError };
 export type Dialog =
   | null
@@ -47,6 +47,9 @@ export type AppEvent =
   | { type: 'APP_HIDDEN' }
   | { type: 'APP_VISIBLE' }
   | { type: 'CAMERA_LOST'; error: CameraError }
+  /** Idle clock (runner timers): warn, then pause after the grace. */
+  | { type: 'IDLE_WARN' }
+  | { type: 'IDLE_TIMEOUT' }
   | { type: 'TUNE_START' }
   | { type: 'TUNE_STOP' }
   /** Get Ready's Calibrate wrote new ratios into the draft: save and apply them. */
@@ -66,6 +69,9 @@ export type Effect =
   | { type: 'engine.update' }
   | { type: 'audio.unlock' }
   | { type: 'audio.cue'; cue: Cue; lapMs?: Ms; totalMs?: Ms }
+  /** (Re)start the idle clock; the runner reads the saved idle settings. */
+  | { type: 'idle.watch' }
+  | { type: 'idle.clear' }
   | { type: 'wakeLock.acquire' }
   | { type: 'wakeLock.release' }
   | { type: 'settings.commit' }
@@ -91,6 +97,8 @@ export const initialState: AppState = {
 const ENGINE_STOP: Effect = { type: 'engine.stop' };
 const CAMERA_STOP: Effect = { type: 'camera.stop' };
 const STOP_ALL: Effect[] = [ENGINE_STOP, CAMERA_STOP, { type: 'wakeLock.release' }];
+const IDLE_WATCH: Effect = { type: 'idle.watch' };
+const IDLE_CLEAR: Effect = { type: 'idle.clear' };
 const cue = (c: Cue, lapMs?: Ms): Effect =>
   lapMs === undefined ? { type: 'audio.cue', cue: c } : { type: 'audio.cue', cue: c, lapMs };
 
@@ -106,20 +114,23 @@ const SYSTEM_EVENTS = new Set<AppEvent['type']>([
   'CAMERA_LOST',
   'APP_HIDDEN',
   'APP_VISIBLE',
+  'IDLE_WARN',
+  'IDLE_TIMEOUT',
 ]);
 
-export function reduce(s: AppState, e: AppEvent): Result {
-  if (s.dialog === null) return reduceScreen(s, e);
+/** `idle`: the saved `session.idleAutoPause`; the machine itself holds no settings. */
+export function reduce(s: AppState, e: AppEvent, idle = false): Result {
+  if (s.dialog === null) return reduceScreen(s, e, idle);
   if (e.type === 'CANCEL') return to({ ...s, dialog: null });
   if (e.type === 'CONFIRM') return confirm(s);
   // Detection keeps running under a dialog (spec §3.2).
-  return SYSTEM_EVENTS.has(e.type) ? reduceScreen(s, e) : same(s);
+  return SYSTEM_EVENTS.has(e.type) ? reduceScreen(s, e, idle) : same(s);
 }
 
 function confirm(s: AppState): Result {
   switch (s.dialog?.kind) {
     case 'leaveSession':
-      return to(leaveTo(s, s.dialog.to), STOP_ALL);
+      return to(leaveTo(s, s.dialog.to), [...STOP_ALL, IDLE_CLEAR]);
     case 'endSession':
       return to({ ...leaveTo(s, 'welcome'), screen: 'summary', session: s.session }, [
         { type: 'wakeLock.release' },
@@ -154,17 +165,20 @@ function pause(s: AppState, reason: PauseReason, camera: CameraState = 'off'): R
   const session = s.session ? stop(s.session) : newSession();
   const effects: Effect[] = [ENGINE_STOP, CAMERA_STOP];
   if (reason !== 'user') effects.push(cue('paused'));
+  if (isReady(s)) effects.push(IDLE_CLEAR);
   return to({ ...s, screen: 'paused', pauseReason: reason, camera, session }, effects);
 }
 
 function leaveSession(s: AppState, target: 'welcome' | 'config'): Result {
   if (hasData(s.session)) return to({ ...s, dialog: { kind: 'leaveSession', to: target } });
-  return to(leaveTo(s, target), STOP_ALL);
+  return to(leaveTo(s, target), isReady(s) ? [...STOP_ALL, IDLE_CLEAR] : STOP_ALL);
 }
+
+const isReady = (s: AppState) => s.screen === 'session' && s.session?.phase === 'ready';
 
 const isError = (c: CameraState): c is { error: CameraError } => typeof c === 'object';
 
-function reduceScreen(s: AppState, e: AppEvent): Result {
+function reduceScreen(s: AppState, e: AppEvent, idle: boolean): Result {
   switch (s.screen) {
     case 'welcome':
       return welcome(s, e);
@@ -173,7 +187,7 @@ function reduceScreen(s: AppState, e: AppEvent): Result {
     case 'getReady':
       return getReady(s, e);
     case 'session':
-      return session(s, e);
+      return session(s, e, idle);
     case 'paused':
       return paused(s, e);
     case 'config':
@@ -253,13 +267,16 @@ function getReady(s: AppState, e: AppEvent): Result {
   }
 }
 
-function session(s: AppState, e: AppEvent): Result {
+function session(s: AppState, e: AppEvent, idle: boolean): Result {
   const data = s.session;
   if (!data) return same(s);
   switch (e.type) {
     case 'ARMED':
       return data.phase === 'arming'
-        ? to({ ...s, session: { ...data, phase: 'ready' } }, [cue('armed')])
+        ? to(
+            { ...s, session: { ...data, phase: 'ready' } },
+            idle ? [cue('armed'), IDLE_WATCH] : [cue('armed')],
+          )
         : same(s);
     case 'PASS': {
       if (data.phase !== 'ready') return same(s); // G4
@@ -267,10 +284,14 @@ function session(s: AppState, e: AppEvent): Result {
       const lap = r.cue === 'go' ? undefined : r.session.laps.at(-1)?.ms;
       if (r.best3 && data.mode === 'best3' && lap !== undefined && r.session.best3) {
         const best3: Effect = { type: 'audio.cue', cue: 'best3', lapMs: lap, totalMs: r.session.best3.ms };
-        return to({ ...s, session: r.session }, [best3]);
+        return to({ ...s, session: r.session }, idle ? [best3, IDLE_WATCH] : [best3]);
       }
-      return to({ ...s, session: r.session }, [cue(r.cue, lap)]);
+      return to({ ...s, session: r.session }, idle ? [cue(r.cue, lap), IDLE_WATCH] : [cue(r.cue, lap)]);
     }
+    case 'IDLE_WARN':
+      return data.phase === 'ready' ? to(s, [cue('idleWarning')]) : same(s);
+    case 'IDLE_TIMEOUT':
+      return data.phase === 'ready' ? pause(s, 'idle') : same(s);
     case 'STOP':
       return pause(s, 'user');
     case 'APP_HIDDEN':

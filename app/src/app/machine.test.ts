@@ -37,6 +37,7 @@ const config = at({ type: 'NAV_CONFIG' });
 const configDirty = run(config, { type: 'CONFIG_CHANGED', dirty: true, valid: true }).state;
 const tuningLive = run(config, { type: 'TUNE_START' }, { type: 'CAMERA_LIVE' }).state;
 
+const IDLE_CLEAR: Effect = { type: 'idle.clear' };
 const STOP_ALL: Effect[] = [{ type: 'engine.stop' }, { type: 'camera.stop' }, { type: 'wakeLock.release' }];
 
 /** Every event type, for "unchanged on illegal events" checks. */
@@ -313,7 +314,7 @@ describe('Session', () => {
     expect(r.state).toMatchObject({ screen: 'paused', pauseReason: 'user', camera: 'off' });
     expect(r.state.session?.timing).toEqual({ kind: 'standby' });
     expect(r.state.session?.laps).toHaveLength(2);
-    expect(r.effects).toEqual([{ type: 'engine.stop' }, { type: 'camera.stop' }]);
+    expect(r.effects).toEqual([{ type: 'engine.stop' }, { type: 'camera.stop' }, IDLE_CLEAR]);
   });
 
   it('STOP during Arming → Paused, no data change', () => {
@@ -330,6 +331,7 @@ describe('Session', () => {
       { type: 'engine.stop' },
       { type: 'camera.stop' },
       { type: 'audio.cue', cue: 'paused' },
+      IDLE_CLEAR,
     ]);
   });
 
@@ -340,6 +342,7 @@ describe('Session', () => {
       { type: 'engine.stop' },
       { type: 'camera.stop' },
       { type: 'audio.cue', cue: 'paused' },
+      IDLE_CLEAR,
     ]);
   });
 
@@ -357,10 +360,10 @@ describe('Session', () => {
   it('NAV_NEW_SESSION / NAV_CONFIG without data → target, session null; stop all', () => {
     const a = reduce(standby, { type: 'NAV_NEW_SESSION' });
     expect(a.state).toEqual(initialState);
-    expect(a.effects).toEqual(STOP_ALL);
+    expect(a.effects).toEqual([...STOP_ALL, IDLE_CLEAR]);
     const b = reduce(standby, { type: 'NAV_CONFIG' });
     expect(b.state).toMatchObject({ screen: 'config', session: null });
-    expect(b.effects).toEqual(STOP_ALL);
+    expect(b.effects).toEqual([...STOP_ALL, IDLE_CLEAR]);
   });
 
   it('G1: CAMERA_LIVE after CONTINUE → camera live; engine.start', () => {
@@ -535,10 +538,10 @@ describe('Dialogs', () => {
   it('CONFIRM (leaveSession) → target, session null; stop all', () => {
     const a = reduce(leaveDialog, { type: 'CONFIRM' });
     expect(a.state).toEqual(initialState);
-    expect(a.effects).toEqual(STOP_ALL);
+    expect(a.effects).toEqual([...STOP_ALL, IDLE_CLEAR]);
     const toConfig = run(pausedWithLaps, { type: 'NAV_CONFIG' }, { type: 'CONFIRM' });
     expect(toConfig.state).toMatchObject({ screen: 'config', session: null, dialog: null, camera: 'off' });
-    expect(toConfig.effects).toEqual(STOP_ALL);
+    expect(toConfig.effects).toEqual([...STOP_ALL, IDLE_CLEAR]);
   });
 
   it('CANCEL (any dialog) → unchanged, dialog null; no effects', () => {
@@ -685,5 +688,85 @@ describe('Configuration tuning (G6–G8)', () => {
       'APP_HIDDEN',
       'CAMERA_LOST',
     ]);
+  });
+});
+
+describe('Idle auto-pause (AC1, AC2)', () => {
+  const ARMED: AppEvent = { type: 'ARMED' };
+  const WATCH: Effect = { type: 'idle.watch' };
+  const warn: AppEvent = { type: 'IDLE_WARN' };
+  const timeout: AppEvent = { type: 'IDLE_TIMEOUT' };
+
+  it('ARMED and PASS emit idle.watch when enabled, not when disabled', () => {
+    expect(reduce(arming, ARMED, true).effects).toContainEqual(WATCH);
+    expect(reduce(standby, pass(0), true).effects).toContainEqual(WATCH);
+    expect(reduce(timing, pass(12000), true).effects).toContainEqual(WATCH);
+    expect(reduce(arming, ARMED, false).effects).not.toContainEqual(WATCH);
+    expect(reduce(standby, pass(0), false).effects).not.toContainEqual(WATCH);
+  });
+
+  it('a best3 pass restarts the clock too', () => {
+    const s = at(
+      { type: 'GET_READY' },
+      CHOOSE_BEST3,
+      { type: 'CAMERA_LIVE' },
+      { type: 'START' },
+      ARMED,
+      pass(0),
+      pass(12000),
+      pass(25000),
+    );
+    expect(reduce(s, pass(38000), true).effects).toContainEqual(WATCH);
+  });
+
+  it('IDLE_WARN emits the idleWarning cue and changes nothing', () => {
+    const r = reduce(withLaps, warn);
+    expect(r.state).toBe(withLaps);
+    expect(r.effects).toEqual([{ type: 'audio.cue', cue: 'idleWarning' }]);
+  });
+
+  it('IDLE_TIMEOUT → Paused(idle), laps kept; engine.stop, camera.stop, paused cue, idle.clear', () => {
+    const r = reduce(withLaps, timeout);
+    expect(r.state).toMatchObject({ screen: 'paused', pauseReason: 'idle', camera: 'off' });
+    expect(r.state.session?.laps).toHaveLength(2);
+    expect(r.effects).toEqual([
+      { type: 'engine.stop' },
+      { type: 'camera.stop' },
+      { type: 'audio.cue', cue: 'paused' },
+      IDLE_CLEAR,
+    ]);
+  });
+
+  it('0 laps (stand-by) idles the same way', () => {
+    expect(reduce(standby, timeout).state).toMatchObject({ screen: 'paused', pauseReason: 'idle' });
+  });
+
+  it('both events are ignored in Arming and on other screens', () => {
+    for (const s of [arming, getReadyLive, pausedWithLaps, config, initialState]) {
+      expect(reduce(s, warn)).toEqual({ state: s, effects: [] });
+      expect(reduce(s, timeout)).toEqual({ state: s, effects: [] });
+    }
+  });
+
+  it('a dialog does not block them', () => {
+    const d = run(withLaps, { type: 'NAV_NEW_SESSION' }).state;
+    expect(reduce(d, warn).effects).toEqual([{ type: 'audio.cue', cue: 'idleWarning' }]);
+    expect(reduce(d, timeout).state.screen).toBe('paused');
+  });
+
+  it('leaving a ready session clears the clock; CONTINUE starts none until ARMED', () => {
+    for (const e of [
+      { type: 'STOP' },
+      { type: 'APP_HIDDEN' },
+      { type: 'CAMERA_LOST', error: lost },
+      { type: 'NAV_NEW_SESSION' },
+    ] as AppEvent[]) {
+      expect(reduce(standby, e).effects).toContainEqual(IDLE_CLEAR);
+    }
+    expect(reduce(withLaps, { type: 'NAV_CONFIG' }).state.dialog).not.toBeNull();
+    expect(run(withLaps, { type: 'NAV_CONFIG' }, { type: 'CONFIRM' }).effects).toContainEqual(IDLE_CLEAR);
+    expect(reduce(pausedWithLaps, { type: 'CONTINUE' }, true).effects).not.toContainEqual(WATCH);
+    const continued = run(pausedWithLaps, { type: 'CONTINUE' }).state;
+    expect(reduce(continued, ARMED, true).effects).toContainEqual(WATCH);
   });
 });

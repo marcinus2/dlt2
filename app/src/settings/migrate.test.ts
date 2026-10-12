@@ -17,6 +17,8 @@ describe('migrateV1', () => {
         'camera.deviceId',
         'camera.facing',
         'detection.roi',
+        'session.idleAutoPause',
+        'session.idleSec',
       ].sort(),
     );
     for (const k of mapped) expect(FIELDS.has(k)).toBe(true);

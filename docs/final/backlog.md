@@ -10,7 +10,7 @@
 
 [x] calibration should be easier to access. maybe get ready screen with preview. — [spec](specs/get-ready-calibration.md)
 
-[ ] too long idle time during active seesion - voice warning about switching to pause. User drone may be demaged and needs some maintenance. this could take more than 2 mins. so to conserve device battery we can switch to pause. User needs to manualy un-pause to continue lap counting session. this idle time should be possible to change in settings.
+[x] too long idle time during active seesion - voice warning about switching to pause. User drone may be demaged and needs some maintenance. this could take more than 2 mins. so to conserve device battery we can switch to pause. User needs to manualy un-pause to continue lap counting session. this idle time should be possible to change in settings. — [spec](specs/idle-auto-pause.md)
 
 [x] after clicking end session best 3 consecutive laps time and best lap time should be displayed — [spec](specs/end-session-bests.md)
 

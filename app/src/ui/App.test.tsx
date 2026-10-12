@@ -208,3 +208,19 @@ describe('Configuration › Camera (M7)', () => {
     expect(report()).toMatch(/show here once this camera has run/);
   });
 });
+
+describe('idle pause banner (AC6)', () => {
+  it('Paused (idle) shows the alert banner and CONTINUE resumes via the camera flow', async () => {
+    const fx = noopEffects();
+    let state = reduce(live(), { type: 'START' }).state;
+    for (const type of ['ARMED', 'IDLE_TIMEOUT'] as const) state = reduce(state, { type }).state;
+    const store = testStore({ effects: fx, state });
+    renderWithStore(<App />, store);
+    const banner = screen.getByRole('alert');
+    expect(banner.textContent).toContain('Paused — no activity');
+    expect(banner.textContent).toContain('Tap CONTINUE to resume.');
+    await wait(320); // tap guard
+    fireEvent.click(screen.getByRole('button', { name: /^Continue/ }));
+    expect(store.getState().state).toMatchObject({ screen: 'session', camera: 'starting' });
+  });
+});

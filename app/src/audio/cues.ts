@@ -18,6 +18,8 @@ export const TONES: Record<Cue, Tone> = {
   best: LAP,
   best3: LAP,
   paused: { from: 990, to: 495, ms: 300, gain: 0.2 },
+  // Idle warning: loud, the pilot is away from the phone.
+  idleWarning: { from: 660, to: 660, ms: 300, gain: 0.5 },
   // Get Ready's Calibrate result: loud, the pilot is away from the phone.
   calibrated: { from: 660, to: 990, ms: 180, gain: 0.5 },
   calibrationFailed: { from: 495, to: 330, ms: 300, gain: 0.5 },

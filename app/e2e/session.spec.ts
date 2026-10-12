@@ -188,3 +188,16 @@ test('Get Ready: Calibrate saves at once, survives a reload, shows in Configurat
     String(+(saved * 100).toPrecision(6)),
   );
 });
+
+test('idle: warns, pauses itself with the idle banner; CONTINUE resumes', async ({ page }) => {
+  await page.clock.install();
+  await page.goto(SIM_URL);
+  await startSession(page);
+  await expect(chip(page)).toHaveText('Stand-by');
+  await page.clock.fastForward(120_000); // default idleSec: warning
+  await page.clock.fastForward(15_000); // grace: pause
+  await expect(page.getByRole('alert')).toContainText('Paused — no activity');
+  await page.clock.fastForward(400); // tap guard
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await expect(page.getByRole('alert')).toBeHidden();
+});

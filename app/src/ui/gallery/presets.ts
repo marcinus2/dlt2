@@ -154,6 +154,12 @@ export const PRESETS: Preset[] = [
     events: [...STANDBY, ...SOME_LAPS, { type: 'APP_HIDDEN' }],
   },
   {
+    id: 'pausedIdle',
+    title: 'Paused (idle)',
+    group: 'Paused',
+    events: [...STANDBY, ...SOME_LAPS, { type: 'IDLE_TIMEOUT' }],
+  },
+  {
     id: 'pausedCameraLost',
     title: 'Paused (camera lost)',
     group: 'Paused',

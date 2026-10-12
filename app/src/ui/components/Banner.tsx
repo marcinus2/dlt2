@@ -22,11 +22,14 @@ export function Banner({ tone, title, children, icon, action, onDismiss }: Props
   const t = TONES[tone];
   const Icon = icon ?? t.Icon;
   return (
-    <div role="alert" className={cx('flex items-start gap-3 rounded-card border px-4 py-3', t.box)}>
-      <Icon aria-hidden size={22} strokeWidth={2.5} className={cx('mt-0.5 shrink-0', t.icon)} />
-      <div className="min-w-0 flex-1">
+    <div
+      role="alert"
+      className={cx('flex items-start gap-3 rounded-card border px-4 py-3 short:py-1.5', t.box)}
+    >
+      <Icon aria-hidden size={22} strokeWidth={2.5} className={cx('mt-0.5 shrink-0 short:hidden', t.icon)} />
+      <div className="min-w-0 flex-1 short:flex short:flex-wrap short:gap-x-2 short:text-sm">
         <p className="font-semibold text-text">{title}</p>
-        {children && <div className="mt-0.5 text-text-muted">{children}</div>}
+        {children && <div className="mt-0.5 text-text-muted short:mt-0">{children}</div>}
       </div>
       {action && (
         <button

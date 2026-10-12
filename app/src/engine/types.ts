@@ -48,12 +48,18 @@ export interface CalibrationSettings {
   durationMs: Ms;
   k: number;
 }
+export interface SessionSettings {
+  /** Warn, then pause, after this long without a pass. */
+  idleAutoPause: boolean;
+  idleSec: number;
+}
 export interface Settings {
   version: 2;
   camera: CameraSettings;
   detection: DetectionSettings;
   calibration: CalibrationSettings;
   audio: AudioSettings;
+  session: SessionSettings;
 }
 
 export interface FrameMeta {

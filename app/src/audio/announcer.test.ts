@@ -19,6 +19,17 @@ describe('announce', () => {
     expect(announce('paused', undefined, ALL)).toEqual({ tone: 'paused', text: 'Paused' });
   });
 
+  it('idleWarning: loud tone and spoken text, each gated by its toggle', () => {
+    const text = 'No laps. Pausing in 15 seconds.';
+    expect(announce('idleWarning', undefined, ALL)).toEqual({ tone: 'idleWarning', text });
+    expect(announce('idleWarning', undefined, { ...ALL, beep: false })).toEqual({ tone: null, text });
+    expect(announce('idleWarning', undefined, { ...ALL, voice: false })).toEqual({
+      tone: 'idleWarning',
+      text: '',
+    });
+    expect(TONES.idleWarning).toEqual({ from: 660, to: 660, ms: 300, gain: 0.5 });
+  });
+
   it('calibration cues: tone + text, each gated by its toggle', () => {
     expect(announce('calibrated', undefined, ALL)).toEqual({ tone: 'calibrated', text: 'Calibrated' });
     expect(announce('calibrationFailed', undefined, ALL)).toEqual({

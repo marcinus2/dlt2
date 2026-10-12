@@ -33,6 +33,8 @@ export function groupSummary(g: Group, s: Settings): string {
       const on = [s.audio.beep && 'beeps', s.audio.voice && 'voice'].filter(Boolean).join(' · ');
       return on ? on[0]?.toUpperCase() + on.slice(1) : 'Off';
     }
+    case 'session':
+      return s.session.idleAutoPause ? `Pause after ${s.session.idleSec} s idle` : 'Off';
     case 'performance':
       return `${s.detection.processingMaxSize} px`;
     case 'calibration':

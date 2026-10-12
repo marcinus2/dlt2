@@ -53,7 +53,7 @@ export function LapHero({ session }: { session: SessionData }) {
           transition={T_LAP}
           data-testid="lap-hero"
           className={cx(
-            'relative font-mono text-lap-hero font-extrabold whitespace-nowrap short:text-[clamp(3rem,min(24cqi,20dvh),8rem)]',
+            'relative font-mono text-lap-hero font-extrabold whitespace-nowrap short:text-[clamp(3rem,min(24cqi,16dvh),8rem)]',
             isBest ? 'text-best' : latest ? 'text-text' : 'text-text-muted',
           )}
         >
