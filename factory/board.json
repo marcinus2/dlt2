@@ -108,6 +108,25 @@
       "builder": "a6e0befdbd52189a1",
       "note": "",
       "updated": "2026-10-11T22:21:41Z"
+    },
+    {
+      "id": "006-calibration-voice-cue",
+      "title": "Spoken calibration result cue",
+      "branch": "factory/006-calibration-voice-cue",
+      "stage": "merged",
+      "round": 1,
+      "maxRound": 3,
+      "reworks": 0,
+      "reviews": {
+        "security": "PASS",
+        "ux": "PASS",
+        "ui": "PASS",
+        "code": "PASS"
+      },
+      "rounds": [],
+      "builder": "a2ca41b25d08704cc",
+      "note": "",
+      "updated": "2026-10-11T22:38:58Z"
     }
   ]
 }

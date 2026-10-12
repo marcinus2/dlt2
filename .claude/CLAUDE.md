@@ -16,7 +16,7 @@ Any other dependency needs a reason in the PR.
 - `npm run build` · `npm run preview`
 - `npm run lint` (`biome ci`) · `npm run format` · `npm run typecheck` · `npm test` · `npm run size` (≤ 130 KB gz initial JS)
 - `npm run test:e2e` (Playwright, needs a build). On macOS 14 the local WebKit fails; use `--project=chromium` locally.
-- CI = `lint → typecheck → test --coverage → build → size → e2e`; every push to `main` deploys to GitHub Pages.
+- CI (`.github/workflows/ci.yml`, on PRs and `main`) = `lint → typecheck → test --coverage → build → size → e2e`; every green push to `main` deploys to GitHub Pages (https://marcinus2.github.io/dlt2/).
 - URL flags: `?sim=1` (simulated engine/camera, shows `SIMULATED` chip), `?gallery` / `?state=<preset>` (state gallery, `src/ui/gallery/presets.ts`), `?debug=1` (console logs, Configuration › Diagnostics).
 
 ## Module boundaries (enforced by Biome `noRestrictedImports` / `noRestrictedGlobals`)

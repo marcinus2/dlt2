@@ -180,6 +180,7 @@ export function GetReady() {
   const height = useApp((s) => s.ui.cameraInfo?.height ?? s.saved.camera.height);
   const calSettings = useApp((s) => s.saved.calibration);
   const applyCalibration = useApp((s) => s.applyCalibration);
+  const failCalibration = useApp((s) => s.failCalibration);
   const error = typeof camera === 'object' ? camera.error : null;
   const live = camera === 'live';
   const frame = useVideoSize();
@@ -190,6 +191,7 @@ export function GetReady() {
     durationMs: calSettings.durationMs,
     k: calSettings.k,
     onResult: applyCalibration,
+    onFail: failCalibration,
   });
 
   return (

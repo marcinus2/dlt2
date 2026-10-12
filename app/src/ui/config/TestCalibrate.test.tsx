@@ -20,13 +20,18 @@ function setup() {
     listeners.add(cb);
     return () => listeners.delete(cb);
   }) as typeof fx.engine.on;
+  const cues: string[] = [];
+  fx.audio.cue = ((c: string) => {
+    cues.push(c);
+    return { tone: null, text: '' };
+  }) as typeof fx.audio.cue;
   const store = testStore({ effects: fx, state: tuningLive() });
   renderWithStore(<TestCalibrate />, store);
   const emit = (t: number, ratio: number, global = false) =>
     act(() => {
       for (const cb of [...listeners]) cb({ t, ratio, globalRatio: 0, global, gapReset: false });
     });
-  return { store, emit, listeners };
+  return { store, emit, listeners, cues };
 }
 
 describe('Test & calibrate', () => {
@@ -38,7 +43,7 @@ describe('Test & calibrate', () => {
   });
 
   it('Calibrate watches durationMs of samples and writes start/end ratio into the draft', () => {
-    const { store, emit } = setup();
+    const { store, emit, cues } = setup();
     expect(store.getState().draft.detection.startRatio).toBe(0.02);
     fireEvent.click(screen.getByRole('button', { name: 'Calibrate' }));
     expect(screen.getByText(/keep the scene still/)).toBeTruthy();
@@ -50,10 +55,11 @@ describe('Test & calibrate', () => {
     expect(d.endRatio).toBeCloseTo(d.startRatio / 2, 5);
     expect(store.getState().state.configDirty).toBe(true);
     expect(screen.getByTestId('calibration-result').textContent).toMatch(/Save to keep them/);
+    expect(cues).toEqual([]);
   });
 
   it('only global frames → failed, draft unchanged; samples stop flowing to the calibrator', () => {
-    const { store, emit, listeners } = setup();
+    const { store, emit, listeners, cues } = setup();
     fireEvent.click(screen.getByRole('button', { name: 'Calibrate' }));
     const during = listeners.size;
     emit(0, 0, true);
@@ -61,6 +67,7 @@ describe('Test & calibrate', () => {
     expect(screen.getByText(/no usable frames/)).toBeTruthy();
     expect(store.getState().draft.detection.startRatio).toBe(0.02);
     expect(listeners.size).toBe(during - 1);
+    expect(cues).toEqual([]);
   });
 
   it('Calibrate is off until the camera is live', () => {

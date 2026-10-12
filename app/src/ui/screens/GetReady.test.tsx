@@ -34,6 +34,11 @@ function setup({ live = true, sim = false } = {}) {
   };
   // A real pipeline exposes the analyzer; sim has none.
   if (!sim) fx.diag = { analyzer: { luma: () => pair } } as unknown as NonNullable<Effects['diag']>;
+  const cues: string[] = [];
+  fx.audio.cue = ((c: string) => {
+    cues.push(c);
+    return { tone: null, text: '' };
+  }) as typeof fx.audio.cue;
   const store = testStore({
     effects: fx,
     state: at({ type: 'GET_READY' }, CHOOSE, ...(live ? [{ type: 'CAMERA_LIVE' } as const] : [])),
@@ -44,7 +49,7 @@ function setup({ live = true, sim = false } = {}) {
       for (const cb of [...listeners]) cb({ t, ratio, globalRatio: 0, global, gapReset: false });
     });
   const stored = () => JSON.parse(backend.getItem(SETTINGS_KEY) ?? 'null');
-  return { store, calls, updated, emit, listeners, stored };
+  return { store, cues, calls, updated, emit, listeners, stored };
 }
 
 const previewGroup = () => screen.getByRole('group', { name: 'Preview' }) as HTMLFieldSetElement;
@@ -96,7 +101,7 @@ describe('Get Ready preview and Calibrate', () => {
   });
 
   it('Calibrate saves and applies the result without a Save step', () => {
-    const { store, emit, updated, stored } = setup();
+    const { store, emit, updated, stored, cues } = setup();
     fireEvent.click(calibrateButton());
     expect(screen.getByText('Calibrating — keep the scene still…')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
@@ -110,6 +115,7 @@ describe('Get Ready preview and Calibrate', () => {
     expect(draft).toEqual(saved);
     expect(state).toMatchObject({ screen: 'getReady', camera: 'live' });
     expect(updated).toEqual([saved.detection]);
+    expect(cues).toEqual(['calibrated']);
     expect(stored().detection.startRatio).toBe(0.00997);
     expect(screen.getByTestId('calibration-result').textContent).toMatch(
       /^Calibrated and saved: start 0\.997% · end 0\.4\d+%\.$/,
@@ -117,17 +123,18 @@ describe('Get Ready preview and Calibrate', () => {
   });
 
   it('a failed run (no usable frames) changes nothing', () => {
-    const { store, emit, stored } = setup();
+    const { store, emit, stored, cues } = setup();
     fireEvent.click(calibrateButton());
     emit(0, 0, true);
     emit(3000, 0, true);
+    expect(cues).toEqual(['calibrationFailed']);
     expect(screen.getByText('Calibration failed: no usable frames. Try again.')).toBeTruthy();
     expect(store.getState().saved.detection).toEqual(DEFAULTS.detection);
     expect(stored()).toBeNull();
   });
 
   it('Cancel stops the run and leaves the settings unchanged', () => {
-    const { store, emit, listeners, updated, stored } = setup();
+    const { store, emit, listeners, updated, stored, cues } = setup();
     const before = listeners.size;
     fireEvent.click(calibrateButton());
     expect(listeners.size).toBe(before + 1);
@@ -139,6 +146,7 @@ describe('Get Ready preview and Calibrate', () => {
     expect(updated).toEqual([]);
     expect(stored()).toBeNull();
     expect(screen.queryByTestId('calibration-result')).toBeNull();
+    expect(cues).toEqual([]);
   });
 
   it('losing the live camera mid-run cancels it', () => {

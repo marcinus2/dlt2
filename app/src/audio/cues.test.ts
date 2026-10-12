@@ -25,6 +25,13 @@ describe('TONES.armed', () => {
   });
 });
 
+describe('calibration tones', () => {
+  it('rise on success, fall on failure, loud', () => {
+    expect(TONES.calibrated).toEqual({ from: 660, to: 990, ms: 180, gain: 0.5 });
+    expect(TONES.calibrationFailed).toEqual({ from: 495, to: 330, ms: 300, gain: 0.5 });
+  });
+});
+
 function fakeContext() {
   const log: string[] = [];
   const param = (name: string) => ({
