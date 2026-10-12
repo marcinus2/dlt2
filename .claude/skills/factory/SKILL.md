@@ -1,7 +1,7 @@
 ---
 name: factory
 description: Software factory orchestrator. Runs a feature through spec → build → 4 parallel reviews → approval → merge, using the subagents in .claude/agents and the state in factory/.
-argument-hint: "<feature> | next | approve <job-id> | rework <job-id> <note>"
+argument-hint: "<feature> | next | approve <job-id> | rework <job-id> <note> | phone <job-id>"
 disable-model-invocation: true
 ---
 
@@ -124,7 +124,26 @@ If the builder can't be reached (new session, agent gone), spawn a fresh `builde
 is required; they are the only files you write."
 Read the first line of decision.md:
 - `APPROVE` → **Merge**.
-- `ESCALATE` → **needs-human**, note = the approver's one-line reason.
+- `ESCALATE (phone)` → **needs-human**, note = `phone check — <reason>`, then **Phone server**.
+- `ESCALATE` → **needs-human**, note = the approver's one-line reason. If decision.md has a
+  `## Phone check` section, also run **Phone server**.
+
+### Phone server
+
+Serves the job's worktree on the LAN so the human can check it on a phone before approving. One at a
+time, on port 5174 (5173 stays free for the human's own dev server):
+
+```sh
+lsof -ti tcp:5174 | xargs kill 2>/dev/null   # stop the previous one
+cd $WT/app && npm run dev -- --port 5174 --strictPort   # Bash run_in_background
+```
+Give the user `https://$(ipconfig getifaddr en0):5174/`, the `## Phone check` steps from decision.md, and
+the SHA the footer must show (`git -C $WT rev-parse --short HEAD`). Stop it (the `lsof … kill` line)
+before **Merge** removes the worktree and before a rework.
+
+### `/factory phone <job-id>`
+
+For a `needs-human` job whose worktree exists (e.g. in a new session): run **Phone server**.
 
 ### Follow-ups
 
@@ -140,7 +159,7 @@ items into the main list; the human sorts Proposed. Tell the user how many were 
 git -C $ROOT merge --no-ff factory/<id> -m "Merge factory/<id>: <title>"
 ```
 - Conflict → `git -C $ROOT merge --abort`, then **needs-human** with note "merge conflict: `/factory rework <id> merge main`".
-- Success → `git -C $ROOT worktree remove factory/.worktrees/<id>`, then `stage: merged` and **Follow-ups**. **Keep the branch**:
+- Success → stop the **Phone server** if it serves this job, `git -C $ROOT worktree remove factory/.worktrees/<id>`, then `stage: merged` and **Follow-ups**. **Keep the branch**:
   never delete it without the user's OK. **Don't push.** A push to `main` deploys to GitHub Pages,
   so tell the user it's ready to push.
 - Commit the factory records on main:
@@ -150,7 +169,7 @@ git -C $ROOT merge --no-ff factory/<id> -m "Merge factory/<id>: <title>"
 
 `stage: needs-human`, `note` = reason. Run **Follow-ups** if the approver wrote followups.md. Commit the factory records as above (`factory: <id> needs human`).
 Tell the user what's wrong and which command moves the job on: `/factory approve <id>` or
-`/factory rework <id> <note>`.
+`/factory rework <id> <note>` (and `/factory phone <id>` if the phone server isn't running).
 
 ### `/factory next`
 
@@ -164,7 +183,7 @@ Only for `stage: needs-human`. Set `note: "approved by human"` and run **Merge**
 
 ### `/factory rework <job-id> <note>`
 
-For any job that isn't `merged`. reworks += 1. Write the note verbatim to `$JOB/rework-<reworks>.md`
+For any job that isn't `merged`. Stop the **Phone server** if it serves this job. reworks += 1. Write the note verbatim to `$JOB/rework-<reworks>.md`
 (you write this one, as the human's messenger). Recreate the worktree if it's gone (`git worktree add
 factory/.worktrees/<id> factory/<id>` + the node_modules symlink). Set `maxRound = round + 1 + MAX_FIX_ROUNDS`,
 `reviewedHead: ""` and `stage: build`. Resume (or respawn) `builder-<id>` pointing at `$JOB/rework-<reworks>.md`, then

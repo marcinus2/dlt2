@@ -25,12 +25,22 @@ the merge is pushed, so run the full set once in `$WT/app` (if `node` is missing
 - A new dependency, or changes to `vite.config.ts`, the service worker or manifest, CI, or deploy.
 - Detection defaults or engine thresholds change (the biggest product risk, spec D8).
 - Tests are deleted or weakened, or a settings migration changes stored user data.
-- The diff is over ~500 changed lines, or strays outside the spec's scope.
-- The change needs a real-phone check that tests can't stand in for (camera, audio, haptics).
+- Over ~500 changed source lines, or the diff strays outside the spec's scope. Count source only
+  (tests and docs don't count):
+  `git -C $WT diff --numstat main...HEAD -- app/src ':(exclude,glob)**/*.test.*' | awk '{s+=$1+$2} END {print s+0}'`
+- The change needs a real-phone check that tests can't stand in for (camera, audio, haptics,
+  gesture-bound effects, camera lifecycle). Use `ESCALATE (phone)`, see below.
 - You're unsure.
 
-decision.md: the first line is exactly `APPROVE` or `ESCALATE — <one-line reason>`. Then a short
-justification: AC coverage, checks, risk, and what a human should look at if escalated.
+decision.md: the first line is exactly `APPROVE`, `ESCALATE — <one-line reason>` or
+`ESCALATE (phone) — <one-line reason>`. Then a short justification: AC coverage, checks, risk, and
+what a human should look at if escalated.
+
+`ESCALATE (phone)` means the human checks the branch on a phone **before** merging: the orchestrator
+serves `$WT/app` with `npm run dev` on the LAN. Add a `## Phone check` section with numbered steps,
+each with what to do and what should happen (add `?sim=1` only where the simulated camera is enough).
+Never say "after deploy": nothing deploys until the human approves. If anything else also needs a
+human, use plain `ESCALATE` and still add the section.
 
 ## followups.md
 
